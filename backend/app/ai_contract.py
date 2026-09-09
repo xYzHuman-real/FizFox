@@ -10,6 +10,7 @@ from .models import AppSpec
 class AIRequest:
     system: str
     user: str
+    temperature: float = 0.1
 
 
 class AITransport(Protocol):
@@ -32,5 +33,5 @@ class ModelPlanner:
 
     def plan(self, prompt: str) -> AppSpec:
         from .providers import JsonAppSpecParser
-        response = self.transport.complete(AIRequest(PLANNER_SYSTEM_PROMPT, prompt))
+        response = self.transport.complete(AIRequest(PLANNER_SYSTEM_PROMPT, prompt, 0.1))
         return JsonAppSpecParser.parse(response)
