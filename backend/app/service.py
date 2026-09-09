@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from .container_worker import DockerContainerWorker
+from .edit_provider import configured_editor
 from .editor import HeuristicProjectEditor
+from .execution_contract import ExecutionResult
 from .executor import ContainerProjectExecutor
 from .generator import HeuristicCodeGenerator
 from .models import Project, ProjectStatus
@@ -12,16 +15,18 @@ from .verifier import StaticVerifier
 
 
 class FizFoxEngine:
-    """Application-builder orchestration kept separate from HTTP routes."""
+    """Compatibility orchestration for API operations outside BuildPipeline."""
 
     def __init__(self) -> None:
         self.planner = HeuristicPlanner()
         self.generator = HeuristicCodeGenerator()
         self.runtime = SafeStaticRuntime()
         self.verifier = StaticVerifier()
+        self.ai_editor = configured_editor()
         self.editor = HeuristicProjectEditor()
         self.preview = StaticPreviewBuilder()
         self.executor = ContainerProjectExecutor()
+        self.worker = DockerContainerWorker()
         self.repair = BoundedRepairEngine(self.verifier, self.generator, max_attempts=2)
 
     def plan(self, project: Project) -> Project:
@@ -44,7 +49,11 @@ class FizFoxEngine:
         if not project.files:
             raise ValueError("Project must be generated before editing")
         project.status = ProjectStatus.EDITING
-        project.files = self.editor.edit(project.files, instruction)
+        if self.ai_editor:
+            edited = self.ai_editor.edit(project.spec, project.files, instruction)
+            project.files = edited.files
+        else:
+            project.files = self.editor.edit(project.files, instruction)
         project.status = ProjectStatus.GENERATED
         project.preview_html = None
         project.build = None
@@ -65,7 +74,10 @@ class FizFoxEngine:
             project.preview_html = self.preview.build(project.files)
         return project
 
-    def execute(self, project: Project):
+    def execute(self, project: Project) -> ExecutionResult:
         if not project.files:
             raise ValueError("Project must be generated before execution")
+        if self.worker.configured:
+            from .worker_executor import WorkerBackedExecutor
+            return WorkerBackedExecutor(self.worker).execute(project.id, project.files)
         return self.executor.execute(project.id, project.files)
