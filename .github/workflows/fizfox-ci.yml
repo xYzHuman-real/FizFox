@@ -1,0 +1,49 @@
+name: FizFox CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend checks
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt pytest
+      - name: Compile backend
+        run: python -m compileall -q app
+      - name: Run tests
+        run: python -m pytest -q
+
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate frontend files
+        run: |
+          test -f frontend/index.html
+          test -f frontend/styles.css
+          test -f frontend/app.js
+          test -f frontend/config.js
+          grep -q "FizFox" frontend/index.html
+          grep -q "FIZFOX_API_BASE" frontend/config.js
