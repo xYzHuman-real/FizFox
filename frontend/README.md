@@ -11,7 +11,24 @@ cd backend
 python -m uvicorn app.main:app --reload
 ```
 
-Then serve `frontend/` with any static HTTP server. The build button calls `POST /api/projects` when the frontend and API are served from compatible paths/proxy configuration.
+Then serve `frontend/` with any static HTTP server.
+
+## Connect GitHub Pages to the API
+
+The frontend is static, so the API can be hosted separately. The runtime API base URL can be supplied with the `api` query parameter:
+
+```text
+https://YOUR-PAGES-URL/?api=https://YOUR-FIZFOX-API.example.com
+```
+
+The value is saved in browser local storage for later visits. The backend must be reachable over HTTPS from the browser and must allow the frontend origin through CORS.
+
+Do not put an AI API key in the frontend. Model credentials belong only on the backend/server side through environment variables:
+
+- `FIZFOX_AI_BASE_URL`
+- `FIZFOX_AI_API_KEY`
+- `FIZFOX_AI_MODEL`
+- `FIZFOX_AI_TIMEOUT`
 
 ## Design direction
 
