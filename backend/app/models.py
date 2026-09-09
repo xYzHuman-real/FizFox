@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 class ProjectStatus(str, Enum):
     CREATED = "created"
     PLANNING = "planning"
+    PLANNED = "planned"
     GENERATED = "generated"
     BUILDING = "building"
     READY = "ready"
