@@ -5,6 +5,7 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+from .health import system_status
 from .models import CreateProjectRequest, EditProjectRequest, Project, ProjectStatus
 from .service import FizFoxEngine
 from .store import ProjectStore
@@ -30,6 +31,11 @@ def _save(project: Project) -> Project:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "fizfox-api", "version": "0.1.0"}
+
+
+@app.get("/api/system/status")
+def status() -> dict[str, object]:
+    return system_status()
 
 
 @app.post("/api/projects", response_model=Project, status_code=201)
