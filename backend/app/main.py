@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
 
+from .generator import HeuristicCodeGenerator
 from .models import CreateProjectRequest, Project, ProjectStatus
 from .planner import HeuristicPlanner
 
@@ -15,6 +16,7 @@ app = FastAPI(
 
 projects: dict[str, Project] = {}
 planner = HeuristicPlanner()
+generator = HeuristicCodeGenerator()
 
 
 @app.get("/health")
@@ -47,6 +49,26 @@ def plan_project(project_id: str) -> Project:
     except Exception as exc:
         project.status = ProjectStatus.FAILED
         raise HTTPException(status_code=500, detail="Unable to create project plan") from exc
+
+    projects[project_id] = project
+    return project
+
+
+@app.post("/api/projects/{project_id}/generate", response_model=Project)
+def generate_project(project_id: str) -> Project:
+    project = projects.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if project.spec is None:
+        raise HTTPException(status_code=409, detail="Project must be planned before generation")
+
+    project.status = ProjectStatus.GENERATING
+    try:
+        project.files = generator.generate(project.spec)
+        project.status = ProjectStatus.GENERATED
+    except Exception as exc:
+        project.status = ProjectStatus.FAILED
+        raise HTTPException(status_code=500, detail="Unable to generate project files") from exc
 
     projects[project_id] = project
     return project
