@@ -45,3 +45,16 @@ class ProjectStore:
         with self._connect() as db:
             row = db.execute("SELECT payload FROM projects WHERE id = ?", (project_id,)).fetchone()
         return Project.model_validate(json.loads(row["payload"])) if row else None
+
+    def list(self, limit: int = 50) -> list[Project]:
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT payload FROM projects ORDER BY rowid DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [Project.model_validate(json.loads(row["payload"])) for row in rows]
+
+    def delete(self, project_id: str) -> bool:
+        with self._lock, self._connect() as db:
+            cursor = db.execute("DELETE FROM projects WHERE id = ?", (project_id,))
+        return cursor.rowcount > 0
