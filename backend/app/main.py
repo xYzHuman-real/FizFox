@@ -5,8 +5,9 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException
 
 from .generator import HeuristicCodeGenerator
-from .models import CreateProjectRequest, Project, ProjectStatus
+from .models import BuildResult, CreateProjectRequest, Project, ProjectStatus, RuntimeDiagnosticModel
 from .planner import HeuristicPlanner
+from .runtime import SafeStaticRuntime
 
 app = FastAPI(
     title="FizFox API",
@@ -17,6 +18,7 @@ app = FastAPI(
 projects: dict[str, Project] = {}
 planner = HeuristicPlanner()
 generator = HeuristicCodeGenerator()
+runtime = SafeStaticRuntime()
 
 
 @app.get("/health")
@@ -70,6 +72,33 @@ def generate_project(project_id: str) -> Project:
         project.status = ProjectStatus.FAILED
         raise HTTPException(status_code=500, detail="Unable to generate project files") from exc
 
+    projects[project_id] = project
+    return project
+
+
+@app.post("/api/projects/{project_id}/build", response_model=Project)
+def build_project(project_id: str) -> Project:
+    project = projects.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not project.files:
+        raise HTTPException(status_code=409, detail="Project must be generated before building")
+
+    project.status = ProjectStatus.BUILDING
+    result = runtime.build(project.files)
+    project.build = BuildResult(
+        success=result.success,
+        diagnostics=[
+            RuntimeDiagnosticModel(
+                level=item.level,
+                code=item.code,
+                message=item.message,
+                file=item.file,
+            )
+            for item in result.diagnostics
+        ],
+    )
+    project.status = ProjectStatus.READY if result.success else ProjectStatus.FAILED
     projects[project_id] = project
     return project
 
