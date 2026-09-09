@@ -13,14 +13,8 @@
   <div class="ambient ambient-two"></div>
 
   <header class="nav glass">
-    <a class="brand" href="#">
-      <span class="brand-mark">F</span>
-      <span>FizFox</span>
-    </a>
-    <nav class="nav-links" aria-label="Main navigation">
-      <a href="#how">How it works</a>
-      <a href="#workspace">Workspace</a>
-    </nav>
+    <a class="brand" href="#"><span class="brand-mark">F</span><span>FizFox</span></a>
+    <nav class="nav-links" aria-label="Main navigation"><a href="#how">How it works</a><a href="#workspace">Workspace</a></nav>
     <button class="nav-button" id="openBuilder">Start building <span>↗</span></button>
   </header>
 
@@ -28,13 +22,10 @@
     <section class="hero" id="workspace">
       <div class="eyebrow"><span class="pulse"></span> AI software builder</div>
       <h1>Build what you<br /><span>imagine.</span></h1>
-      <p class="hero-copy">Describe an application in plain language. FizFox plans it, builds it, and helps you turn the idea into a real product.</p>
+      <p class="hero-copy">Describe an application in plain language. FizFox plans it, builds it, verifies it, and helps you turn the idea into a real product.</p>
 
       <div class="prompt-card glass-strong" id="builderCard">
-        <div class="prompt-top">
-          <div class="prompt-label"><span class="spark">✦</span> What do you want to build?</div>
-          <span class="prompt-hint">AI powered</span>
-        </div>
+        <div class="prompt-top"><div class="prompt-label"><span class="spark">✦</span> What do you want to build?</div><span class="prompt-hint">AI powered</span></div>
         <textarea id="prompt" rows="4" placeholder="Build me a modern restaurant website with a homepage, menu, about page and contact form..."></textarea>
         <div class="prompt-bottom">
           <div class="chips">
@@ -46,42 +37,29 @@
         </div>
         <div class="status" id="status" aria-live="polite"></div>
       </div>
-
-      <div class="trust-row">
-        <span>From idea to app</span><i></i><span>Natural language</span><i></i><span>Iterative editing</span>
-      </div>
+      <div class="trust-row"><span>From idea to app</span><i></i><span>Natural language</span><i></i><span>Iterative editing</span></div>
     </section>
 
     <section class="showcase" id="how">
-      <div class="section-heading">
-        <span class="section-kicker">THE FIZFOX LOOP</span>
-        <h2>One idea. A complete build flow.</h2>
-        <p>FizFox is being designed around the work that actually matters — planning, generation, verification and iteration.</p>
-      </div>
+      <div class="section-heading"><span class="section-kicker">THE FIZFOX LOOP</span><h2>One idea. A complete build flow.</h2><p>FizFox is designed around the work that actually matters — planning, generation, verification and iteration.</p></div>
       <div class="steps">
-        <article class="step glass">
-          <span class="step-number">01</span><div class="step-icon">✦</div><h3>Describe</h3><p>Tell FizFox what you want in everyday language.</p>
-        </article>
-        <article class="step glass">
-          <span class="step-number">02</span><div class="step-icon">⌘</div><h3>Plan</h3><p>Your idea becomes a structured application blueprint.</p>
-        </article>
-        <article class="step glass">
-          <span class="step-number">03</span><div class="step-icon">◈</div><h3>Build</h3><p>FizFox turns the blueprint into project files and code.</p>
-        </article>
-        <article class="step glass">
-          <span class="step-number">04</span><div class="step-icon">✓</div><h3>Iterate</h3><p>Ask for changes and keep improving the same project.</p>
-        </article>
+        <article class="step glass"><span class="step-number">01</span><div class="step-icon">✦</div><h3>Describe</h3><p>Tell FizFox what you want in everyday language.</p></article>
+        <article class="step glass"><span class="step-number">02</span><div class="step-icon">⌘</div><h3>Plan</h3><p>Your idea becomes a structured application blueprint.</p></article>
+        <article class="step glass"><span class="step-number">03</span><div class="step-icon">◈</div><h3>Build</h3><p>FizFox turns the blueprint into project files and code.</p></article>
+        <article class="step glass"><span class="step-number">04</span><div class="step-icon">✓</div><h3>Iterate</h3><p>Ask for changes and keep improving the same project.</p></article>
       </div>
     </section>
 
     <section class="workspace-preview">
       <div class="preview-shell glass-strong">
         <div class="preview-bar"><div class="traffic"><b></b><b></b><b></b></div><span>FizFox Workspace</span><div class="live-dot"><i></i> Preview</div></div>
-        <div class="preview-body">
-          <aside><div class="side-title">PROJECT</div><div class="tree active">⌄ <strong>my-app</strong></div><div class="tree">⌄ src</div><div class="tree indent">◻ App</div><div class="tree indent">◻ pages</div><div class="tree indent">◻ components</div><div class="tree">◻ package.json</div></aside>
-          <div class="fake-preview"><div class="fake-nav"><strong>your app</strong><span>Home &nbsp; Features &nbsp; About</span></div><div class="fake-hero"><small>BUILT WITH FIZFOX</small><h3>Your idea,<br /><em>made real.</em></h3><div class="fake-card"></div></div></div>
-        </div>
+        <div class="preview-body"><aside><div class="side-title">PROJECT</div><div class="tree active">⌄ <strong>my-app</strong></div><div class="tree">⌄ src</div><div class="tree indent">◻ App</div><div class="tree indent">◻ pages</div><div class="tree indent">◻ components</div><div class="tree">◻ package.json</div></aside><div class="fake-preview"><div class="fake-nav"><strong>your app</strong><span>Home &nbsp; Features &nbsp; About</span></div><div class="fake-hero"><small>BUILT WITH FIZFOX</small><h3>Your idea,<br /><em>made real.</em></h3><div class="fake-card"></div></div></div></div>
       </div>
+    </section>
+
+    <section class="real-preview glass-strong" id="previewPanel" hidden>
+      <div class="section-heading"><span class="section-kicker">LIVE MVP PREVIEW</span><h2>Your generated app.</h2><p>This preview is rendered from the verified project output.</p></div>
+      <div class="real-preview-frame"><iframe id="previewFrame" title="FizFox generated app preview" sandbox="allow-scripts"></iframe></div>
     </section>
   </main>
 
