@@ -15,9 +15,11 @@ Code Generator
   ↓
 Project Files
   ↓
-Sandbox Runtime
+Safe Runtime Boundary
   ↓
 Verifier
+  ↓
+Repair Loop
   ↓
 Preview
 ```
@@ -29,10 +31,11 @@ The backend owns orchestration, not UI rendering.
 - Accept user prompts.
 - Create and validate an `AppSpec`.
 - Track project state and generated files.
-- Invoke a code-generation provider.
-- Manage generated project files.
+- Invoke provider-agnostic planning and generation interfaces.
+- Apply user-directed project edits.
 - Dispatch builds through a runtime boundary.
-- Later collect verification results and trigger repair loops.
+- Verify generated output.
+- Run bounded automatic repair for known failures.
 
 ## 3. AppSpec Contract
 
@@ -66,12 +69,12 @@ POST /api/projects/{id}/generate
         ↓
 Static project files (generated)
         ↓
-POST /api/projects/{id}/build
+POST /api/projects/{id}/build-and-repair
         ↓
-Runtime diagnostics (ready / failed)
+Ready / failed + diagnostics
 ```
 
-The current planner and generator are deterministic MVP implementations. They establish the interfaces before a real model provider is connected.
+The current planner, generator, editor, runtime, verifier, and repair engine are deterministic MVP implementations. They establish the architecture before a real model provider and executable container runtime are connected.
 
 ## 5. Code Generation Boundary
 
@@ -81,7 +84,7 @@ Generated source is treated as data. **FizFox must never execute generated code 
 
 ## 6. Runtime Boundary
 
-The current `SafeStaticRuntime` is deliberately non-executing. It validates the generated project before any future executable sandbox is introduced.
+`SafeStaticRuntime` is deliberately non-executing. It validates the generated project before any future executable sandbox is introduced.
 
 It currently checks:
 
@@ -93,19 +96,53 @@ It currently checks:
 - required `index.html` entrypoint
 - basic HTML document validity
 
-A future container-backed runtime will add actual build/start execution with explicit restrictions for:
+A future container-backed runtime will add actual build/start execution with explicit restrictions for filesystem access, network access, CPU, memory, execution time, child processes, and environment/secrets exposure.
 
-- filesystem access
-- network access
-- CPU
-- memory
-- execution time
-- child processes
-- environment/secrets exposure
+## 7. Verification Boundary
 
-Sandboxing is a core security boundary, not an optional product feature.
+`StaticVerifier` performs deterministic output checks without executing untrusted project code. It checks the HTML entrypoint and basic JavaScript structure and returns structured diagnostics.
 
-## 7. Project Model
+Verification is intentionally layered so stronger checks can be added later:
+
+1. generation validation
+2. runtime/build validation
+3. application startup validation
+4. browser/page loading validation
+5. basic interaction validation
+
+## 8. Iterative Editing
+
+Users can request changes after generation through:
+
+```text
+POST /api/projects/{id}/edit
+```
+
+The current `HeuristicProjectEditor` supports a small safe set of presentation edits such as dark mode, purple accents, hero-section insertion, and larger headings. A future model-backed editor will replace this implementation while keeping the same boundary.
+
+## 9. Repair Loop
+
+```text
+Build / Verify
+      ↓
+Failure
+      ↓
+Diagnose
+      ↓
+Known safe repair?
+   ┌──┴──┐
+  YES    NO
+   ↓      ↓
+Repair   Report
+   ↓
+Build again
+   ↓
+Verify again
+```
+
+`BoundedRepairEngine` limits repair attempts and only applies explicitly supported deterministic repairs. Unknown failures are not blindly modified.
+
+## 10. Project Model
 
 A project is identified by a stable project ID and contains:
 
@@ -116,45 +153,15 @@ Project
 ├── status
 ├── spec
 ├── files/
-└── build
-    └── diagnostics[]
+├── build
+│   └── diagnostics[]
+└── repair_attempts
 ```
 
-Projects currently live in memory during the foundation phase. Persistence will be introduced later.
+Projects currently live in memory during the foundation phase. Persistence, authentication, and deployment will be introduced later.
 
-## 8. Verification Boundary
+## 11. Next Runtime Boundary
 
-Verification will be split into progressively stronger checks:
+The next production-grade runtime must be container-backed and isolated. Generated applications should execute only inside a restricted sandbox with explicit filesystem, network, CPU, memory, time, process, and secret controls.
 
-1. generation validation
-2. dependency/install validation
-3. build validation
-4. application startup validation
-5. browser/page loading validation
-6. basic interaction validation
-
-Failures become structured diagnostic data for the repair system.
-
-## 9. Repair Loop
-
-```text
-Failure
-  ↓
-Diagnose
-  ↓
-Identify affected files
-  ↓
-Generate correction
-  ↓
-Apply correction
-  ↓
-Build again
-  ↓
-Verify again
-```
-
-Repairs must have bounded attempts so a broken project cannot create an endless loop.
-
-## 10. Implementation Boundary
-
-v0.1 builds intelligence, generation, and the safe runtime boundary behind explicit interfaces first. Real model providers, container execution, browser verification, auto-fix, persistence, and deployment are added progressively without coupling them to API request handlers.
+That runtime will enable real build/start execution and browser verification without weakening the host security boundary.
