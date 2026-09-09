@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .health import system_status
 from .models import CreateProjectRequest, EditProjectRequest, Project, ProjectStatus
+from .pipeline import BuildPipeline
 from .service import FizFoxEngine
 from .store import ProjectStore
 
@@ -15,6 +16,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False,
 
 store = ProjectStore()
 engine = FizFoxEngine()
+pipeline = BuildPipeline()
 
 
 def _get(project_id: str) -> Project:
@@ -52,7 +54,7 @@ def list_projects(limit: int = Query(default=50, ge=1, le=100)) -> list[Project]
 def plan_project(project_id: str) -> Project:
     project = _get(project_id)
     try:
-        engine.plan(project)
+        pipeline.plan(project)
     except Exception as exc:
         project.status = ProjectStatus.FAILED
         _save(project)
@@ -64,7 +66,7 @@ def plan_project(project_id: str) -> Project:
 def generate_project(project_id: str) -> Project:
     project = _get(project_id)
     try:
-        engine.generate(project)
+        pipeline.generate(project)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
@@ -88,7 +90,11 @@ def edit_project(project_id: str, request: EditProjectRequest) -> Project:
 def build_project(project_id: str) -> Project:
     project = _get(project_id)
     try:
-        engine.build_and_verify(project)
+        if project.spec is None:
+            pipeline.plan(project)
+        if not project.files:
+            pipeline.generate(project)
+        pipeline.verify_and_preview(project)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return _save(project)
@@ -97,17 +103,20 @@ def build_project(project_id: str) -> Project:
 @app.post("/api/projects/{project_id}/build-and-repair", response_model=Project)
 def build_and_repair_project(project_id: str) -> Project:
     project = _get(project_id)
-    if not project.files:
-        raise HTTPException(status_code=409, detail="Project must be generated before building")
-    if project.spec is None:
-        raise HTTPException(status_code=409, detail="Project must be planned before repair")
-    engine.build_and_verify(project)
+    try:
+        if project.spec is None:
+            pipeline.plan(project)
+        if not project.files:
+            pipeline.generate(project)
+        pipeline.verify_and_preview(project)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     if project.status == ProjectStatus.FAILED:
         project.status = ProjectStatus.REPAIRING
         result = engine.repair.repair(project.files, project.spec)
         project.files = result.files
         project.repair_attempts += result.attempts
-        engine.build_and_verify(project)
+        pipeline.verify_and_preview(project)
     return _save(project)
 
 
