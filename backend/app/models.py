@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -10,6 +10,7 @@ class ProjectStatus(str, Enum):
     CREATED = "created"
     PLANNING = "planning"
     PLANNED = "planned"
+    GENERATING = "generating"
     GENERATED = "generated"
     BUILDING = "building"
     READY = "ready"
@@ -49,3 +50,4 @@ class Project(BaseModel):
     prompt: str
     status: ProjectStatus
     spec: Optional[AppSpec] = None
+    files: Dict[str, str] = Field(default_factory=dict)
