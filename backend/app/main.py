@@ -5,6 +5,7 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException
 
 from .models import CreateProjectRequest, Project, ProjectStatus
+from .planner import HeuristicPlanner
 
 app = FastAPI(
     title="FizFox API",
@@ -13,6 +14,7 @@ app = FastAPI(
 )
 
 projects: dict[str, Project] = {}
+planner = HeuristicPlanner()
 
 
 @app.get("/health")
@@ -28,6 +30,24 @@ def create_project(request: CreateProjectRequest) -> Project:
         prompt=request.prompt,
         status=ProjectStatus.CREATED,
     )
+    projects[project_id] = project
+    return project
+
+
+@app.post("/api/projects/{project_id}/plan", response_model=Project)
+def plan_project(project_id: str) -> Project:
+    project = projects.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    project.status = ProjectStatus.PLANNING
+    try:
+        project.spec = planner.plan(project.prompt)
+        project.status = ProjectStatus.PLANNED
+    except Exception as exc:
+        project.status = ProjectStatus.FAILED
+        raise HTTPException(status_code=500, detail="Unable to create project plan") from exc
+
     projects[project_id] = project
     return project
 
