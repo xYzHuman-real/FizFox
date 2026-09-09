@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
-import os
+import re
 from typing import Protocol
 
-from .models import AppSpec, PageSpec, ComponentSpec
+from .models import AppSpec
 
 
 class PlannerProvider(Protocol):
@@ -16,27 +16,39 @@ class GeneratorProvider(Protocol):
 
 
 class AIProviderConfig:
-    """Configuration shared by future model-backed providers."""
+    """Legacy provider metadata kept compatible with the HTTP transport."""
 
     def __init__(self) -> None:
-        self.provider = os.getenv("FIZFOX_AI_PROVIDER", "heuristic")
+        import os
+        self.provider = os.getenv("FIZFOX_AI_PROVIDER", "openai-compatible")
         self.model = os.getenv("FIZFOX_AI_MODEL", "")
         self.api_key = os.getenv("FIZFOX_AI_API_KEY", "")
+        self.base_url = os.getenv("FIZFOX_AI_BASE_URL", "").rstrip("/")
 
     @property
     def configured(self) -> bool:
-        return bool(self.provider and self.provider != "heuristic" and self.api_key and self.model)
+        return bool(self.base_url and self.api_key and self.model)
 
 
 class JsonAppSpecParser:
-    """Strict parser for model responses before they enter FizFox's core."""
+    """Parse and validate planner output before it enters FizFox's core."""
 
     @staticmethod
     def parse(payload: str) -> AppSpec:
-        data = json.loads(payload)
+        text = payload.strip()
+        fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", text, flags=re.IGNORECASE | re.DOTALL)
+        if fenced:
+            text = fenced.group(1).strip()
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ValueError("AI planner returned invalid JSON") from exc
         if not isinstance(data, dict):
             raise ValueError("AI planner response must be a JSON object")
-        return AppSpec.model_validate(data)
+        try:
+            return AppSpec.model_validate(data)
+        except Exception as exc:
+            raise ValueError("AI planner returned an invalid AppSpec") from exc
 
 
 class ProviderNotConfigured(RuntimeError):
@@ -44,12 +56,7 @@ class ProviderNotConfigured(RuntimeError):
 
 
 class OpenAICompatiblePlanner:
-    """Placeholder boundary for an OpenAI-compatible model service.
-
-    Network/model invocation is intentionally not performed here yet. This
-    adapter makes configuration and response validation explicit so a real
-    provider can be added without changing the FizFox engine contract.
-    """
+    """Compatibility placeholder for the shared model transport."""
 
     def __init__(self, config: AIProviderConfig | None = None) -> None:
         self.config = config or AIProviderConfig()
@@ -57,7 +64,7 @@ class OpenAICompatiblePlanner:
     def plan(self, prompt: str) -> AppSpec:
         if not self.config.configured:
             raise ProviderNotConfigured("FizFox AI provider is not configured")
-        raise NotImplementedError("Connect the configured model transport here")
+        raise NotImplementedError("Use the configured model transport through ModelPlanner")
 
 
 class ProviderRegistry:
