@@ -80,9 +80,13 @@ def generate_project(project_id: str) -> Project:
 def edit_project(project_id: str, request: EditProjectRequest) -> Project:
     project = _get(project_id)
     try:
-        engine.edit(project, request.instruction)
+        pipeline.edit(project, request.instruction)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        project.status = ProjectStatus.FAILED
+        _save(project)
+        raise HTTPException(status_code=500, detail="Unable to apply the requested edit") from exc
     return _save(project)
 
 
