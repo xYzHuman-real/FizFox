@@ -31,7 +31,7 @@ The backend owns orchestration, not UI rendering.
 - Track project state and generated files.
 - Invoke a code-generation provider.
 - Manage generated project files.
-- Later dispatch builds to isolated sandboxes.
+- Dispatch builds through a runtime boundary.
 - Later collect verification results and trigger repair loops.
 
 ## 3. AppSpec Contract
@@ -65,6 +65,10 @@ AppSpec (planned)
 POST /api/projects/{id}/generate
         ↓
 Static project files (generated)
+        ↓
+POST /api/projects/{id}/build
+        ↓
+Runtime diagnostics (ready / failed)
 ```
 
 The current planner and generator are deterministic MVP implementations. They establish the interfaces before a real model provider is connected.
@@ -73,28 +77,23 @@ The current planner and generator are deterministic MVP implementations. They es
 
 `CodeGenerator` is a provider-agnostic interface. The current `HeuristicCodeGenerator` produces a small static web project containing `index.html`, `styles.css`, `app.js`, and `README.md`.
 
-Generated source is treated as data at this stage. **FizFox must never execute generated code directly on the API host.** Execution belongs behind the future sandbox boundary.
+Generated source is treated as data. **FizFox must never execute generated code directly on the API host.** Execution belongs behind the sandbox boundary.
 
-## 6. Project Model
+## 6. Runtime Boundary
 
-A project is identified by a stable project ID and contains:
+The current `SafeStaticRuntime` is deliberately non-executing. It validates the generated project before any future executable sandbox is introduced.
 
-```text
-Project
-├── id
-├── prompt
-├── status
-├── spec
-└── files/
-```
+It currently checks:
 
-Projects currently live in memory during the foundation phase. Persistence will be introduced later.
+- project has generated files
+- file-count limit
+- file-size limit
+- allowed file types
+- path traversal / project-boundary escapes
+- required `index.html` entrypoint
+- basic HTML document validity
 
-## 7. Runtime Boundary
-
-Generated code must eventually execute in an isolated environment rather than directly on the FizFox host.
-
-The runtime boundary must support limits for:
+A future container-backed runtime will add actual build/start execution with explicit restrictions for:
 
 - filesystem access
 - network access
@@ -105,6 +104,23 @@ The runtime boundary must support limits for:
 - environment/secrets exposure
 
 Sandboxing is a core security boundary, not an optional product feature.
+
+## 7. Project Model
+
+A project is identified by a stable project ID and contains:
+
+```text
+Project
+├── id
+├── prompt
+├── status
+├── spec
+├── files/
+└── build
+    └── diagnostics[]
+```
+
+Projects currently live in memory during the foundation phase. Persistence will be introduced later.
 
 ## 8. Verification Boundary
 
@@ -141,4 +157,4 @@ Repairs must have bounded attempts so a broken project cannot create an endless 
 
 ## 10. Implementation Boundary
 
-v0.1 builds intelligence and generation behind explicit interfaces first. Real model providers, sandbox execution, browser verification, and deployment are added progressively without coupling them to the API request handlers.
+v0.1 builds intelligence, generation, and the safe runtime boundary behind explicit interfaces first. Real model providers, container execution, browser verification, auto-fix, persistence, and deployment are added progressively without coupling them to API request handlers.
