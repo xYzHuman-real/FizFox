@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .ai_editor import configured_editor
-from .ai_generation import configured_generator, generation_prompt
+from .ai_generation import configured_generator
 from .model_provider import configured_planner
 from .models import Project, ProjectStatus
 from .generator import HeuristicCodeGenerator
@@ -38,7 +38,7 @@ class BuildPipeline:
             raise ValueError("Project must be planned before generation")
         project.status = ProjectStatus.GENERATING
         if self.ai_generator:
-            generated = self.ai_generator.generate(generation_prompt(project.spec))
+            generated = self.ai_generator.generate(project.spec)
             project.files = generated.files
         else:
             project.files = self.fallback_generator.generate(project.spec)
