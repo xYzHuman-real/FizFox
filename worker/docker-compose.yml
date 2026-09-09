@@ -1,0 +1,15 @@
+services:
+  fizfox-worker:
+    build:
+      context: ..
+      dockerfile: worker/Dockerfile
+    restart: unless-stopped
+    environment:
+      FIZFOX_WORKER_IMAGE: node:22-alpine
+      FIZFOX_WORKER_TIMEOUT: "10"
+      FIZFOX_WORKER_MEMORY: 512m
+      FIZFOX_WORKER_CPUS: "1.0"
+      FIZFOX_WORKER_PIDS: "64"
+    # The worker itself may access the Docker daemon only through a separately
+    # managed execution service. Never mount /var/run/docker.sock into an
+    # untrusted generated-project container.
