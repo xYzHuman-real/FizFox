@@ -18,11 +18,15 @@ class HttpAIConfig:
 
     @classmethod
     def from_env(cls) -> "HttpAIConfig":
+        try:
+            timeout = int(os.getenv("FIZFOX_AI_TIMEOUT", "60"))
+        except ValueError:
+            timeout = 60
         return cls(
             base_url=os.getenv("FIZFOX_AI_BASE_URL", "").rstrip("/"),
             api_key=os.getenv("FIZFOX_AI_API_KEY", ""),
             model=os.getenv("FIZFOX_AI_MODEL", ""),
-            timeout_seconds=int(os.getenv("FIZFOX_AI_TIMEOUT", "60")),
+            timeout_seconds=max(1, min(timeout, 300)),
         )
 
     @property
@@ -33,8 +37,8 @@ class HttpAIConfig:
 class OpenAICompatibleHTTPTransport(AITransport):
     """Minimal OpenAI-compatible HTTP transport.
 
-    It sends only prompts and receives text. The response is never executed by
-    FizFox; callers must validate structured output before using it.
+    Prompts cross the provider boundary; returned text is treated as untrusted
+    data and must be validated by the planner/editor/generator contracts.
     """
 
     def __init__(self, config: HttpAIConfig | None = None) -> None:
@@ -49,7 +53,7 @@ class OpenAICompatibleHTTPTransport(AITransport):
                 {"role": "system", "content": request.system},
                 {"role": "user", "content": request.user},
             ],
-            "temperature": 0.1,
+            "temperature": request.temperature,
         }).encode("utf-8")
         req = urllib.request.Request(
             f"{self.config.base_url}/chat/completions",
@@ -62,10 +66,13 @@ class OpenAICompatibleHTTPTransport(AITransport):
         )
         try:
             with urllib.request.urlopen(req, timeout=self.config.timeout_seconds) as response:
-                data = json.loads(response.read().decode("utf-8"))
+                raw = response.read().decode("utf-8")
+        except urllib.error.HTTPError as exc:
+            raise RuntimeError(f"FizFox AI provider returned HTTP {exc.code}") from exc
         except (urllib.error.URLError, TimeoutError) as exc:
             raise RuntimeError("FizFox AI provider request failed") from exc
         try:
+            data = json.loads(raw)
             return data["choices"][0]["message"]["content"]
-        except (KeyError, IndexError, TypeError) as exc:
+        except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
             raise RuntimeError("FizFox AI provider returned an invalid response") from exc
