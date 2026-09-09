@@ -11,7 +11,7 @@ const editPrompt = document.getElementById('editPrompt');
 const editButton = document.getElementById('editButton');
 const editStatus = document.getElementById('editStatus');
 
-const API_BASE = window.FIZFOX_API_BASE || '';
+const API_BASE = (window.FIZFOX_API_BASE || '').replace(/\/$/, '');
 let currentProjectId = null;
 
 const setStatus = (element, message, busy = false, kind = '') => {
@@ -28,10 +28,15 @@ const setStatus = (element, message, busy = false, kind = '') => {
 };
 
 async function api(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
-  });
+  let response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
+    });
+  } catch (error) {
+    throw new Error('FizFox API is not connected. Set window.FIZFOX_API_BASE to your deployed backend URL.');
+  }
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.detail || `Request failed (${response.status})`);
   return body;
@@ -48,6 +53,10 @@ function renderWorkspace(project) {
     item.textContent = path;
     fileList.appendChild(item);
   });
+}
+
+async function refreshProject(projectId) {
+  return api(`/api/projects/${projectId}`);
 }
 
 async function showPreview(project) {
@@ -73,36 +82,41 @@ buildButton.addEventListener('click', async () => {
   setStatus(status, 'Creating your project…', true);
   try {
     const project = await api('/api/projects', { method: 'POST', body: JSON.stringify({ prompt: value }) });
-    setStatus(status, 'Planning your application…', true);
+    setStatus(status, 'FizFox is planning your application…', true);
     await api(`/api/projects/${project.id}/plan`, { method: 'POST' });
     setStatus(status, 'Generating project files…', true);
     await api(`/api/projects/${project.id}/generate`, { method: 'POST' });
-    setStatus(status, 'Building and verifying…', true);
+    setStatus(status, 'Building, verifying and repairing…', true);
     const built = await api(`/api/projects/${project.id}/build-and-repair`, { method: 'POST' });
     if (built.status !== 'ready') throw new Error('FizFox could not verify this project yet.');
     setStatus(status, 'Your app is ready. 🦊', false, 'success');
     await showPreview(built);
   } catch (error) {
-    setStatus(status, `${error.message || 'Something went wrong.'}`, false, 'error');
+    setStatus(status, error.message || 'Something went wrong.', false, 'error');
   }
 });
 
+async function applyEdit(instruction) {
+  if (!currentProjectId) throw new Error('Build a project before asking for changes.');
+  await api(`/api/projects/${currentProjectId}/edit`, {
+    method: 'POST', body: JSON.stringify({ instruction })
+  });
+  const built = await api(`/api/projects/${currentProjectId}/build-and-repair`, { method: 'POST' });
+  if (built.status !== 'ready') throw new Error('FizFox could not verify the updated project.');
+  return built;
+}
+
 editButton.addEventListener('click', async () => {
   const instruction = editPrompt.value.trim();
-  if (!currentProjectId) return;
   if (!instruction) { setStatus(editStatus, 'Tell FizFox what you want to change.', false, 'error'); editPrompt.focus(); return; }
-  setStatus(editStatus, 'Applying your change…', true);
+  setStatus(editStatus, 'Understanding your change…', true);
   try {
-    const edited = await api(`/api/projects/${currentProjectId}/edit`, {
-      method: 'POST', body: JSON.stringify({ instruction })
-    });
-    setStatus(editStatus, 'Rebuilding and verifying…', true);
-    const built = await api(`/api/projects/${currentProjectId}/build-and-repair`, { method: 'POST' });
-    if (built.status !== 'ready') throw new Error('The change needs another repair pass.');
-    setStatus(editStatus, 'Change applied. ✨', false, 'success');
+    setStatus(editStatus, 'Editing the existing project…', true);
+    const built = await applyEdit(instruction);
+    setStatus(editStatus, 'Change verified and applied. ✨', false, 'success');
     editPrompt.value = '';
     await showPreview(built);
   } catch (error) {
-    setStatus(editStatus, `${error.message || 'Could not apply the change.'}`, false, 'error');
+    setStatus(editStatus, error.message || 'Could not apply the change.', false, 'error');
   }
 });
