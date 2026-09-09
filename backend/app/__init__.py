@@ -1,0 +1,1 @@
+"""FizFox backend application package."""
