@@ -4,8 +4,9 @@ from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
 
+from .editor import HeuristicProjectEditor
 from .generator import HeuristicCodeGenerator
-from .models import BuildResult, CreateProjectRequest, Project, ProjectStatus, RuntimeDiagnosticModel
+from .models import BuildResult, CreateProjectRequest, EditProjectRequest, Project, ProjectStatus, RuntimeDiagnosticModel
 from .planner import HeuristicPlanner
 from .repair import BoundedRepairEngine
 from .runtime import SafeStaticRuntime
@@ -22,6 +23,7 @@ planner = HeuristicPlanner()
 generator = HeuristicCodeGenerator()
 runtime = SafeStaticRuntime()
 verifier = StaticVerifier()
+editor = HeuristicProjectEditor()
 repair_engine = BoundedRepairEngine(verifier, generator, max_attempts=2)
 
 
@@ -38,6 +40,22 @@ def _build_result(success: bool, diagnostics: list) -> BuildResult:
             for item in diagnostics
         ],
     )
+
+
+def _run_build(project: Project) -> Project:
+    project.status = ProjectStatus.BUILDING
+    runtime_result = runtime.build(project.files)
+    if not runtime_result.success:
+        project.build = _build_result(False, runtime_result.diagnostics)
+        project.status = ProjectStatus.FAILED
+        return project
+
+    project.status = ProjectStatus.VERIFYING
+    verification_result = verifier.verify(project.files)
+    diagnostics = runtime_result.diagnostics + verification_result.diagnostics
+    project.build = _build_result(verification_result.success, diagnostics)
+    project.status = ProjectStatus.READY if verification_result.success else ProjectStatus.FAILED
+    return project
 
 
 @app.get("/health")
@@ -93,6 +111,28 @@ def generate_project(project_id: str) -> Project:
     return project
 
 
+@app.post("/api/projects/{project_id}/edit", response_model=Project)
+def edit_project(project_id: str, request: EditProjectRequest) -> Project:
+    project = projects.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not project.files:
+        raise HTTPException(status_code=409, detail="Project must be generated before editing")
+
+    project.status = ProjectStatus.EDITING
+    updated = editor.edit(project.files, request.instruction)
+    if updated == project.files:
+        project.status = ProjectStatus.READY if project.build and project.build.success else ProjectStatus.GENERATED
+        projects[project_id] = project
+        return project
+
+    project.files = updated
+    project.build = None
+    project.status = ProjectStatus.GENERATED
+    projects[project_id] = project
+    return project
+
+
 @app.post("/api/projects/{project_id}/build", response_model=Project)
 def build_project(project_id: str) -> Project:
     project = projects.get(project_id)
@@ -101,20 +141,7 @@ def build_project(project_id: str) -> Project:
     if not project.files:
         raise HTTPException(status_code=409, detail="Project must be generated before building")
 
-    project.status = ProjectStatus.BUILDING
-    runtime_result = runtime.build(project.files)
-    runtime_diagnostics = runtime_result.diagnostics
-    if not runtime_result.success:
-        project.build = _build_result(False, runtime_diagnostics)
-        project.status = ProjectStatus.FAILED
-        projects[project_id] = project
-        return project
-
-    project.status = ProjectStatus.VERIFYING
-    verification_result = verifier.verify(project.files)
-    diagnostics = runtime_diagnostics + verification_result.diagnostics
-    project.build = _build_result(verification_result.success, diagnostics)
-    project.status = ProjectStatus.READY if verification_result.success else ProjectStatus.FAILED
+    project = _run_build(project)
     projects[project_id] = project
     return project
 
@@ -166,15 +193,26 @@ def build_and_repair_project(project_id: str) -> Project:
     if project.spec is None:
         raise HTTPException(status_code=409, detail="Project must be planned before repair")
 
-    built = build_project(project_id)
-    if built.status != ProjectStatus.FAILED:
-        return built
+    project = _run_build(project)
+    if project.status != ProjectStatus.FAILED:
+        projects[project_id] = project
+        return project
 
     repaired = repair_project(project_id)
     if repaired.status == ProjectStatus.READY:
         return repaired
 
-    return build_project(project_id)
+    final = _run_build(repaired)
+    projects[project_id] = final
+    return final
+
+
+@app.get("/api/projects/{project_id}/files", response_model=dict[str, str])
+def get_project_files(project_id: str) -> dict[str, str]:
+    project = projects.get(project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return project.files
 
 
 @app.get("/api/projects/{project_id}", response_model=Project)
