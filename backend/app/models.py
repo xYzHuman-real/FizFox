@@ -41,6 +41,18 @@ class AppSpec(BaseModel):
     constraints: List[str] = Field(default_factory=list)
 
 
+class RuntimeDiagnosticModel(BaseModel):
+    level: str
+    code: str
+    message: str
+    file: Optional[str] = None
+
+
+class BuildResult(BaseModel):
+    success: bool
+    diagnostics: List[RuntimeDiagnosticModel] = Field(default_factory=list)
+
+
 class CreateProjectRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=20_000)
 
@@ -51,3 +63,4 @@ class Project(BaseModel):
     status: ProjectStatus
     spec: Optional[AppSpec] = None
     files: Dict[str, str] = Field(default_factory=dict)
+    build: Optional[BuildResult] = None
