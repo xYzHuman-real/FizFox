@@ -11,11 +11,11 @@ Planner
   ↓
 AppSpec
   ↓
-Generator
+Code Generator
   ↓
-Project
+Project Files
   ↓
-Runtime
+Sandbox Runtime
   ↓
 Verifier
   ↓
@@ -28,7 +28,7 @@ The backend owns orchestration, not UI rendering.
 
 - Accept user prompts.
 - Create and validate an `AppSpec`.
-- Persist project state.
+- Track project state and generated files.
 - Invoke a code-generation provider.
 - Manage generated project files.
 - Later dispatch builds to isolated sandboxes.
@@ -36,7 +36,7 @@ The backend owns orchestration, not UI rendering.
 
 ## 3. AppSpec Contract
 
-The planner should eventually produce a structure containing:
+The planner produces:
 
 - project name
 - application type
@@ -49,21 +49,48 @@ The planner should eventually produce a structure containing:
 - styling direction
 - generation constraints
 
-The contract is intentionally provider-agnostic so FizFox can use different AI models without changing the rest of the system.
+The contract is provider-agnostic so FizFox can use different AI models without changing the rest of the system.
 
-## 4. Project Model
+## 4. Current MVP Pipeline
+
+```text
+POST /api/projects
+        ↓
+Project (created)
+        ↓
+POST /api/projects/{id}/plan
+        ↓
+AppSpec (planned)
+        ↓
+POST /api/projects/{id}/generate
+        ↓
+Static project files (generated)
+```
+
+The current planner and generator are deterministic MVP implementations. They establish the interfaces before a real model provider is connected.
+
+## 5. Code Generation Boundary
+
+`CodeGenerator` is a provider-agnostic interface. The current `HeuristicCodeGenerator` produces a small static web project containing `index.html`, `styles.css`, `app.js`, and `README.md`.
+
+Generated source is treated as data at this stage. **FizFox must never execute generated code directly on the API host.** Execution belongs behind the future sandbox boundary.
+
+## 6. Project Model
 
 A project is identified by a stable project ID and contains:
 
 ```text
-project/
-├── metadata
+Project
+├── id
+├── prompt
+├── status
+├── spec
 └── files/
 ```
 
-Generated source files are data owned by the project layer. The generator should not directly manipulate runtime infrastructure.
+Projects currently live in memory during the foundation phase. Persistence will be introduced later.
 
-## 5. Runtime Boundary
+## 7. Runtime Boundary
 
 Generated code must eventually execute in an isolated environment rather than directly on the FizFox host.
 
@@ -79,7 +106,7 @@ The runtime boundary must support limits for:
 
 Sandboxing is a core security boundary, not an optional product feature.
 
-## 6. Verification Boundary
+## 8. Verification Boundary
 
 Verification will be split into progressively stronger checks:
 
@@ -92,7 +119,7 @@ Verification will be split into progressively stronger checks:
 
 Failures become structured diagnostic data for the repair system.
 
-## 7. Repair Loop
+## 9. Repair Loop
 
 ```text
 Failure
@@ -112,6 +139,6 @@ Verify again
 
 Repairs must have bounded attempts so a broken project cannot create an endless loop.
 
-## 8. First Implementation Boundary
+## 10. Implementation Boundary
 
-v0.1 starts with API contracts and project orchestration. Real model providers, sandbox execution, and browser verification will be added behind explicit interfaces rather than embedded into request handlers.
+v0.1 builds intelligence and generation behind explicit interfaces first. Real model providers, sandbox execution, browser verification, and deployment are added progressively without coupling them to the API request handlers.
