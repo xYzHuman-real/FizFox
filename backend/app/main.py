@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from .models import CreateProjectRequest, EditProjectRequest, Project, ProjectStatus
@@ -35,6 +35,11 @@ def health() -> dict[str, str]:
 @app.post("/api/projects", response_model=Project, status_code=201)
 def create_project(request: CreateProjectRequest) -> Project:
     return _save(Project(id=str(uuid4()), prompt=request.prompt, status=ProjectStatus.CREATED))
+
+
+@app.get("/api/projects", response_model=list[Project])
+def list_projects(limit: int = Query(default=50, ge=1, le=100)) -> list[Project]:
+    return store.list(limit)
 
 
 @app.post("/api/projects/{project_id}/plan", response_model=Project)
@@ -108,6 +113,12 @@ def execute_project(project_id: str) -> dict:
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return {"success": result.success, "preview_url": result.preview_url, "diagnostics": [d.__dict__ for d in result.diagnostics]}
+
+
+@app.delete("/api/projects/{project_id}", status_code=204)
+def delete_project(project_id: str) -> None:
+    _get(project_id)
+    store.delete(project_id)
 
 
 @app.get("/api/projects/{project_id}/files", response_model=dict[str, str])
