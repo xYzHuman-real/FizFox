@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .ai_editor import configured_editor
 from .ai_generation import configured_generator, generation_prompt
 from .model_provider import configured_planner
 from .models import Project, ProjectStatus
@@ -7,6 +8,7 @@ from .generator import HeuristicCodeGenerator
 from .planner import HeuristicPlanner
 from .verifier import StaticVerifier
 from .preview import StaticPreviewBuilder
+from .editor import HeuristicProjectEditor
 
 
 class BuildPipeline:
@@ -15,8 +17,10 @@ class BuildPipeline:
     def __init__(self) -> None:
         self.ai_planner = configured_planner()
         self.ai_generator = configured_generator()
+        self.ai_editor = configured_editor()
         self.fallback_planner = HeuristicPlanner()
         self.fallback_generator = HeuristicCodeGenerator()
+        self.fallback_editor = HeuristicProjectEditor()
         self.verifier = StaticVerifier()
         self.preview = StaticPreviewBuilder()
 
@@ -39,6 +43,21 @@ class BuildPipeline:
         else:
             project.files = self.fallback_generator.generate(project.spec)
         project.status = ProjectStatus.GENERATED
+        project.preview_html = None
+        project.build = None
+        return project
+
+    def edit(self, project: Project, instruction: str) -> Project:
+        if not project.files:
+            raise ValueError("Project must be generated before editing")
+        project.status = ProjectStatus.EDITING
+        if self.ai_editor:
+            project.files = self.ai_editor.edit(project.files, instruction, project.spec)
+        else:
+            project.files = self.fallback_editor.edit(project.files, instruction)
+        project.status = ProjectStatus.GENERATED
+        project.preview_html = None
+        project.build = None
         return project
 
     def verify_and_preview(self, project: Project) -> Project:
