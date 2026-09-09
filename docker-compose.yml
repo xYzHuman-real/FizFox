@@ -1,0 +1,13 @@
+services:
+  fizfox-api:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid,nodev
