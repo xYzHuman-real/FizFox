@@ -72,4 +72,5 @@ class Project(BaseModel):
     spec: Optional[AppSpec] = None
     files: Dict[str, str] = Field(default_factory=dict)
     build: Optional[BuildResult] = None
+    preview_html: Optional[str] = None
     repair_attempts: int = 0
