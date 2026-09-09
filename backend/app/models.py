@@ -13,6 +13,9 @@ class ProjectStatus(str, Enum):
     GENERATING = "generating"
     GENERATED = "generated"
     BUILDING = "building"
+    VERIFYING = "verifying"
+    REPAIRING = "repairing"
+    VERIFIED = "verified"
     READY = "ready"
     FAILED = "failed"
 
@@ -64,3 +67,4 @@ class Project(BaseModel):
     spec: Optional[AppSpec] = None
     files: Dict[str, str] = Field(default_factory=dict)
     build: Optional[BuildResult] = None
+    repair_attempts: int = 0
