@@ -12,6 +12,7 @@ class ProjectStatus(str, Enum):
     PLANNED = "planned"
     GENERATING = "generating"
     GENERATED = "generated"
+    EDITING = "editing"
     BUILDING = "building"
     VERIFYING = "verifying"
     REPAIRING = "repairing"
@@ -58,6 +59,10 @@ class BuildResult(BaseModel):
 
 class CreateProjectRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=20_000)
+
+
+class EditProjectRequest(BaseModel):
+    instruction: str = Field(min_length=1, max_length=10_000)
 
 
 class Project(BaseModel):
