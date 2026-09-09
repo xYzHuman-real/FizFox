@@ -50,8 +50,7 @@ class FizFoxEngine:
             raise ValueError("Project must be generated before editing")
         project.status = ProjectStatus.EDITING
         if self.ai_editor:
-            edited = self.ai_editor.edit(project.spec, project.files, instruction)
-            project.files = edited.files
+            project.files = self.ai_editor.edit(project.files, instruction, project.spec)
         else:
             project.files = self.editor.edit(project.files, instruction)
         project.status = ProjectStatus.GENERATED
