@@ -11,7 +11,7 @@ def system_status() -> dict[str, object]:
         "service": "fizfox-api",
         "version": "0.1.0",
         "ai": {
-            "provider": "openai-compatible",
+            "provider": "gemini",
             "model_configured": bool(ai.model),
             "endpoint_configured": bool(ai.base_url),
             "ready": ai.configured,
