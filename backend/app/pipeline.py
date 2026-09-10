@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from .edit_provider import configured_editor
 from .ai_generation import configured_generator
+from .ai_repair import configured_repairer
+from .edit_provider import configured_editor
 from .model_provider import configured_planner
 from .models import Project, ProjectStatus
 from .generator import HeuristicCodeGenerator
@@ -9,27 +10,27 @@ from .planner import HeuristicPlanner
 from .verifier import StaticVerifier
 from .preview import StaticPreviewBuilder
 from .editor import HeuristicProjectEditor
+from .repair import BoundedRepairEngine
 
 
 class BuildPipeline:
-    """Single pipeline entry point for model-backed or deterministic MVP builds."""
+    """Single orchestration path for model-backed and deterministic builds."""
 
     def __init__(self) -> None:
         self.ai_planner = configured_planner()
         self.ai_generator = configured_generator()
         self.ai_editor = configured_editor()
+        self.ai_repairer = configured_repairer()
         self.fallback_planner = HeuristicPlanner()
         self.fallback_generator = HeuristicCodeGenerator()
         self.fallback_editor = HeuristicProjectEditor()
         self.verifier = StaticVerifier()
         self.preview = StaticPreviewBuilder()
+        self.fallback_repair = BoundedRepairEngine(self.verifier, self.fallback_generator, max_attempts=2)
 
     def plan(self, project: Project) -> Project:
         project.status = ProjectStatus.PLANNING
-        if self.ai_planner:
-            project.spec = self.ai_planner.plan(project.prompt)
-        else:
-            project.spec = self.fallback_planner.plan(project.prompt)
+        project.spec = (self.ai_planner.plan(project.prompt) if self.ai_planner else self.fallback_planner.plan(project.prompt))
         project.status = ProjectStatus.PLANNED
         return project
 
@@ -38,8 +39,7 @@ class BuildPipeline:
             raise ValueError("Project must be planned before generation")
         project.status = ProjectStatus.GENERATING
         if self.ai_generator:
-            generated = self.ai_generator.generate(project.spec)
-            project.files = generated.files
+            project.files = self.ai_generator.generate(project.spec).files
         else:
             project.files = self.fallback_generator.generate(project.spec)
         project.status = ProjectStatus.GENERATED
@@ -70,6 +70,24 @@ class BuildPipeline:
         project.preview_html = self.preview.build(project.files)
         project.status = ProjectStatus.READY
         return project
+
+    def repair(self, project: Project) -> Project:
+        if project.spec is None or not project.files:
+            raise ValueError("Project must be planned and generated before repair")
+        project.status = ProjectStatus.REPAIRING
+        verification = self.verifier.verify(project.files)
+        if verification.success:
+            return self.verify_and_preview(project)
+
+        if self.ai_repairer:
+            project.files = self.ai_repairer.repair(project.files, verification.diagnostics, project.spec)
+            project.repair_attempts += 1
+            return self.verify_and_preview(project)
+
+        result = self.fallback_repair.repair(project.files, project.spec)
+        project.files = result.files
+        project.repair_attempts += result.attempts
+        return self.verify_and_preview(project)
 
     def build(self, project: Project) -> Project:
         self.plan(project)
