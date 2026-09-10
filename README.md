@@ -52,28 +52,35 @@ python -m uvicorn app.main:app --reload
 
 The API exposes `/health` and `/api/system/status` for service and capability checks.
 
-## AI Provider
+## AI Provider — Gemini by Default
 
-FizFox uses an OpenAI-compatible HTTP boundary. Configure the backend only:
+FizFox is provider-agnostic, but the default configuration is now **Google Gemini** so development can start without OpenAI API credits. Google documents a free Gemini API tier with free input/output tokens for supported models, subject to rate limits and model availability. citeturn0search1turn0search4
+
+The FizFox transport uses Gemini's OpenAI-compatible endpoint, so the existing planner/generator/editor architecture does not need a provider-specific rewrite. Google documents this compatibility layer and the Gemini OpenAI-compatible base URL. citeturn0search0
+
+Configure the backend only:
 
 ```text
-FIZFOX_AI_BASE_URL=https://your-provider.example/v1
-FIZFOX_AI_API_KEY=your-secret-key
-FIZFOX_AI_MODEL=your-model
+FIZFOX_AI_PROVIDER=gemini
+GEMINI_API_KEY=your-secret-key
+GEMINI_MODEL=gemini-3.8-flash
 FIZFOX_AI_TIMEOUT=60
 ```
 
-No provider credentials belong in the frontend or Git repository.
+The API key must stay on the backend. **Never put it in GitHub Pages frontend code, JavaScript, HTML, or the Git repository.**
+
+To use another OpenAI-compatible provider later:
+
+```text
+FIZFOX_AI_PROVIDER=openai_compatible
+FIZFOX_AI_BASE_URL=https://your-provider.example/v1
+FIZFOX_AI_API_KEY=your-secret-key
+FIZFOX_AI_MODEL=your-model
+```
 
 ## GitHub Pages + API
 
-The frontend can connect to a separately deployed HTTPS backend. Use the **API** button in the workspace, or open the Pages URL once with:
-
-```text
-?api=https://your-fizfox-api.example.com
-```
-
-The API origin is saved locally in the browser. In production, set `FIZFOX_ALLOWED_ORIGINS` to the exact GitHub Pages origin.
+The frontend can connect to a separately deployed HTTPS backend. The API origin can be supplied through the runtime frontend configuration and saved locally in the browser. In production, configure the backend CORS allow-list with the exact GitHub Pages origin.
 
 ## Project Export
 
