@@ -58,8 +58,9 @@ def test_editor_preserves_project_files():
     spec = HeuristicPlanner().plan("Build a portfolio website")
     files = HeuristicCodeGenerator().generate(spec)
     updated = HeuristicProjectEditor().edit(files, "Make the homepage darker and add a hero section")
-    assert updated["index.html"] != files["index.html"]
+    assert set(updated) == set(files)
     assert updated["styles.css"] != files["styles.css"]
+    assert "hero" in updated["index.html"].lower()
 
 
 def test_parse_json_object_accepts_json_fence():
