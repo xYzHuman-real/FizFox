@@ -10,8 +10,13 @@ const workspaceMeta = document.getElementById('workspaceMeta');
 const editPrompt = document.getElementById('editPrompt');
 const editButton = document.getElementById('editButton');
 const editStatus = document.getElementById('editStatus');
+const apiSettings = document.getElementById('apiSettings');
+const apiPanel = document.getElementById('apiPanel');
+const apiBaseInput = document.getElementById('apiBaseInput');
+const saveApiButton = document.getElementById('saveApiButton');
+const apiStatus = document.getElementById('apiStatus');
 
-const API_BASE = (window.FIZFOX_API_BASE || '').replace(/\/$/, '');
+let API_BASE = (window.FIZFOX_API_BASE || '').replace(/\/$/, '');
 let currentProjectId = null;
 
 const setStatus = (element, message, busy = false, kind = '') => {
@@ -25,9 +30,16 @@ const setStatus = (element, message, busy = false, kind = '') => {
     editButton.disabled = busy;
     editButton.style.opacity = busy ? '0.7' : '1';
   }
+  if (element === apiStatus) {
+    saveApiButton.disabled = busy;
+    saveApiButton.style.opacity = busy ? '0.7' : '1';
+  }
 };
 
 async function api(path, options = {}) {
+  if (!API_BASE) {
+    throw new Error('Connect your FizFox API first using the API button above.');
+  }
   let response;
   try {
     response = await fetch(`${API_BASE}${path}`, {
@@ -35,7 +47,7 @@ async function api(path, options = {}) {
       headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
     });
   } catch (error) {
-    throw new Error('FizFox API is not connected. Set window.FIZFOX_API_BASE to your deployed backend URL.');
+    throw new Error('Could not reach the FizFox API. Check the backend URL and CORS settings.');
   }
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.detail || `Request failed (${response.status})`);
@@ -55,10 +67,6 @@ function renderWorkspace(project) {
   });
 }
 
-async function refreshProject(projectId) {
-  return api(`/api/projects/${projectId}`);
-}
-
 async function showPreview(project) {
   renderWorkspace(project);
   const preview = await api(`/api/projects/${project.id}/preview`);
@@ -66,6 +74,43 @@ async function showPreview(project) {
   previewPanel.hidden = false;
   previewPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
+
+apiSettings.addEventListener('click', () => {
+  apiPanel.hidden = !apiPanel.hidden;
+  if (!apiPanel.hidden) {
+    apiBaseInput.value = API_BASE;
+    apiBaseInput.focus();
+  }
+});
+
+saveApiButton.addEventListener('click', async () => {
+  const value = apiBaseInput.value.trim().replace(/\/$/, '');
+  if (!value) {
+    API_BASE = '';
+    localStorage.removeItem('fizfox_api_base');
+    setStatus(apiStatus, 'API connection cleared.', false, 'success');
+    return;
+  }
+  try {
+    new URL(value);
+  } catch {
+    setStatus(apiStatus, 'Enter a valid HTTPS backend URL.', false, 'error');
+    return;
+  }
+  setStatus(apiStatus, 'Testing connection…', true);
+  try {
+    const response = await fetch(`${value}/health`, { headers: { Accept: 'application/json' } });
+    if (!response.ok) throw new Error();
+    const health = await response.json();
+    if (health.service !== 'fizfox-api') throw new Error();
+    API_BASE = value;
+    window.FIZFOX_API_BASE = value;
+    localStorage.setItem('fizfox_api_base', value);
+    setStatus(apiStatus, 'Connected to FizFox API. 🦊', false, 'success');
+  } catch {
+    setStatus(apiStatus, 'Connection failed. Check the URL, HTTPS and CORS settings.', false, 'error');
+  }
+});
 
 document.querySelectorAll('.chip').forEach((chip) => {
   chip.addEventListener('click', () => { prompt.value = chip.dataset.prompt || ''; prompt.focus(); });
@@ -111,7 +156,6 @@ editButton.addEventListener('click', async () => {
   if (!instruction) { setStatus(editStatus, 'Tell FizFox what you want to change.', false, 'error'); editPrompt.focus(); return; }
   setStatus(editStatus, 'Understanding your change…', true);
   try {
-    setStatus(editStatus, 'Editing the existing project…', true);
     const built = await applyEdit(instruction);
     setStatus(editStatus, 'Change verified and applied. ✨', false, 'success');
     editPrompt.value = '';
