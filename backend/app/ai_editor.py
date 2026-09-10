@@ -10,11 +10,11 @@ from .provider_transport import OpenAICompatibleHTTPTransport
 
 
 EDITOR_SYSTEM_PROMPT = """You are FizFox's project editor.
-You modify an existing generated web application from a user's natural-language instruction.
-Return ONLY valid JSON in this exact shape: {\"files\": {\"relative/path\": \"complete file contents\"}}.
-Return complete contents for every file you change. Preserve unrelated existing files and behavior.
-Never use absolute paths, ../ traversal, shell commands, secrets, or executable host instructions.
-Prefer small, coherent edits. Use the supplied project files as the source of truth.
+Modify an existing generated web application from the user's instruction.
+Return ONLY JSON: {\"files\": {\"relative/path\": \"complete updated UTF-8 source\"}}.
+Return complete contents for every changed file. Preserve unrelated functionality.
+Never use absolute paths, parent traversal, secrets, shell commands, or host-execution instructions.
+Prefer the smallest coherent change that satisfies the request.
 """
 
 
@@ -31,7 +31,7 @@ class AIProjectEditor:
         )
         if len(context.encode("utf-8")) > 6_000_000:
             raise ValueError("Project is too large for the AI editor")
-        response = self.transport.complete(AIRequest(system=EDITOR_SYSTEM_PROMPT, user=context))
+        response = self.transport.complete(AIRequest(system=EDITOR_SYSTEM_PROMPT, user=context, temperature=0.1))
         payload = parse_json_object(response)
         changed = payload.get("files")
         if not isinstance(changed, dict) or not changed:
