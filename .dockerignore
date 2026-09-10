@@ -1,0 +1,14 @@
+.git
+.github
+.gitignore
+frontend
+worker
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+.env.*
+*.db
+*.sqlite
+*.sqlite3
