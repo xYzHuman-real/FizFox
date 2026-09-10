@@ -15,3 +15,5 @@ services:
         sync: false
       - key: FIZFOX_AI_TIMEOUT
         value: "60"
+      - key: FIZFOX_ALLOWED_ORIGINS
+        sync: false
