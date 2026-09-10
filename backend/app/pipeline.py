@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from .ai_editor import configured_editor
+from .edit_provider import configured_editor
 from .ai_generation import configured_generator
 from .model_provider import configured_planner
 from .models import Project, ProjectStatus
@@ -52,7 +52,8 @@ class BuildPipeline:
             raise ValueError("Project must be generated before editing")
         project.status = ProjectStatus.EDITING
         if self.ai_editor:
-            project.files = self.ai_editor.edit(project.files, instruction, project.spec)
+            edited = self.ai_editor.edit(project.spec, project.files, instruction)
+            project.files = edited.files
         else:
             project.files = self.fallback_editor.edit(project.files, instruction)
         project.status = ProjectStatus.GENERATED
@@ -63,6 +64,7 @@ class BuildPipeline:
     def verify_and_preview(self, project: Project) -> Project:
         project.status = ProjectStatus.VERIFYING
         result = self.verifier.verify(project.files)
+        project.build = result
         if not result.success:
             project.status = ProjectStatus.FAILED
             return project
