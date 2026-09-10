@@ -16,7 +16,7 @@ class GeneratorProvider(Protocol):
 
 
 class AIProviderConfig:
-    """Legacy provider metadata kept compatible with the HTTP transport."""
+    """Provider metadata shared with the model transport."""
 
     def __init__(self) -> None:
         import os
@@ -30,21 +30,27 @@ class AIProviderConfig:
         return bool(self.base_url and self.api_key and self.model)
 
 
+def parse_json_object(payload: str, source: str = "AI") -> dict:
+    """Parse one JSON object, allowing a single markdown JSON fence."""
+    text = payload.strip()
+    fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", text, flags=re.IGNORECASE | re.DOTALL)
+    if fenced:
+        text = fenced.group(1).strip()
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{source} returned invalid JSON") from exc
+    if not isinstance(data, dict):
+        raise ValueError(f"{source} response must be a JSON object")
+    return data
+
+
 class JsonAppSpecParser:
     """Parse and validate planner output before it enters FizFox's core."""
 
     @staticmethod
     def parse(payload: str) -> AppSpec:
-        text = payload.strip()
-        fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", text, flags=re.IGNORECASE | re.DOTALL)
-        if fenced:
-            text = fenced.group(1).strip()
-        try:
-            data = json.loads(text)
-        except json.JSONDecodeError as exc:
-            raise ValueError("AI planner returned invalid JSON") from exc
-        if not isinstance(data, dict):
-            raise ValueError("AI planner response must be a JSON object")
+        data = parse_json_object(payload, "AI planner")
         try:
             return AppSpec.model_validate(data)
         except Exception as exc:
@@ -56,7 +62,7 @@ class ProviderNotConfigured(RuntimeError):
 
 
 class OpenAICompatiblePlanner:
-    """Compatibility placeholder for the shared model transport."""
+    """Compatibility boundary for the shared model transport."""
 
     def __init__(self, config: AIProviderConfig | None = None) -> None:
         self.config = config or AIProviderConfig()
