@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from .edit_contract import ModelProjectEditor
+from .ai_editor import AIProjectEditor
 from .provider_transport import OpenAICompatibleHTTPTransport
 
 
-def configured_editor() -> ModelProjectEditor | None:
+def configured_editor() -> AIProjectEditor | None:
     transport = OpenAICompatibleHTTPTransport()
-    return ModelProjectEditor(transport) if transport.config.configured else None
+    return AIProjectEditor(transport) if transport.config.configured else None
