@@ -20,8 +20,11 @@ class AIProjectRepairer:
             "files": files,
             "diagnostics": [getattr(item, "__dict__", str(item)) for item in diagnostics],
         }
+        context = json.dumps(payload, ensure_ascii=False)
+        if len(context.encode("utf-8")) > 6_000_000:
+            raise ValueError("Project is too large for the AI repairer")
         response = self.transport.complete(
-            AIRequest(REPAIR_SYSTEM_PROMPT, json.dumps(payload, ensure_ascii=False), temperature=0.0)
+            AIRequest(REPAIR_SYSTEM_PROMPT, context, temperature=0.0)
         )
         data = parse_json_object(response, label="AI repairer")
         changed = data.get("files")
