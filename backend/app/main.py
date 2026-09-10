@@ -122,14 +122,14 @@ def build_and_repair_project(project_id: str) -> Project:
         if not project.files:
             pipeline.generate(project)
         pipeline.verify_and_preview(project)
+        if project.status == ProjectStatus.FAILED:
+            pipeline.repair(project)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    if project.status == ProjectStatus.FAILED:
-        project.status = ProjectStatus.REPAIRING
-        result = engine.repair.repair(project.files, project.spec)
-        project.files = result.files
-        project.repair_attempts += result.attempts
-        pipeline.verify_and_preview(project)
+    except Exception as exc:
+        project.status = ProjectStatus.FAILED
+        _save(project)
+        raise HTTPException(status_code=500, detail="Unable to complete build and repair") from exc
     return _save(project)
 
 
