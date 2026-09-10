@@ -35,10 +35,10 @@ class HttpAIConfig:
 
 
 class OpenAICompatibleHTTPTransport(AITransport):
-    """Minimal OpenAI-compatible HTTP transport.
+    """Minimal provider-neutral HTTP transport.
 
-    Prompts cross the provider boundary; returned text is treated as untrusted
-    data and must be validated by the planner/editor/generator contracts.
+    Prompts cross the provider boundary; returned text is untrusted data and
+    must be validated by the planner/editor/generator contracts.
     """
 
     def __init__(self, config: HttpAIConfig | None = None) -> None:
@@ -73,6 +73,9 @@ class OpenAICompatibleHTTPTransport(AITransport):
             raise RuntimeError("FizFox AI provider request failed") from exc
         try:
             data = json.loads(raw)
-            return data["choices"][0]["message"]["content"]
+            content = data["choices"][0]["message"]["content"]
         except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
             raise RuntimeError("FizFox AI provider returned an invalid response") from exc
+        if not isinstance(content, str) or not content.strip():
+            raise RuntimeError("FizFox AI provider returned empty content")
+        return content
