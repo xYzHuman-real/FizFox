@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query
@@ -12,7 +13,15 @@ from .service import FizFoxEngine
 from .store import ProjectStore
 
 app = FastAPI(title="FizFox API", version="0.1.0", description="Backend for the FizFox AI application builder.")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=False, allow_methods=["*"], allow_headers=["*"])
+
+_allowed_origins = [origin.strip() for origin in os.getenv("FIZFOX_ALLOWED_ORIGINS", "*").split(",") if origin.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins or ["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 store = ProjectStore()
 engine = FizFoxEngine()
