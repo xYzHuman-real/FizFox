@@ -7,6 +7,8 @@ from app.ai_editor import AIProjectEditor
 from app.editor import HeuristicProjectEditor
 from app.generation_contract import ModelCodeGenerator, parse_json_object
 from app.generator import HeuristicCodeGenerator
+from app.models import Project, ProjectStatus
+from app.pipeline import BuildPipeline
 from app.planner import HeuristicPlanner
 from app.preview import StaticPreviewBuilder
 from app.sandbox import IsolatedSandbox
@@ -77,6 +79,7 @@ def test_model_planner_uses_ai_request_and_validates_app_spec():
     spec = ModelPlanner(transport).plan("Build Demo")
     assert spec.name == "Demo"
     assert isinstance(transport.requests[0], AIRequest)
+    assert transport.requests[0].temperature == 0.1
 
 
 def test_model_generator_rejects_unsafe_path():
@@ -92,9 +95,23 @@ def test_ai_editor_only_replaces_returned_files():
     updated = AIProjectEditor(transport).edit(files, "Make it purple")
     assert updated["index.html"] == files["index.html"]
     assert updated["styles.css"] == "body { color: purple; }"
+    assert transport.requests[0].temperature == 0.1
 
 
 def test_ai_editor_rejects_unsafe_path():
     transport = FakeTransport('{"files":{"../../escape":"bad"}}')
     with pytest.raises(ValueError, match="unsafe path"):
         AIProjectEditor(transport).edit({"index.html": "<html></html>"}, "change it")
+
+
+def test_build_pipeline_repairs_known_static_failure():
+    pipeline = BuildPipeline()
+    project = Project(id="test", prompt="Build a portfolio", status=ProjectStatus.CREATED)
+    pipeline.plan(project)
+    pipeline.generate(project)
+    project.files["index.html"] = "<body>broken</body>"
+    pipeline.verify_and_preview(project)
+    assert project.status == ProjectStatus.FAILED
+    pipeline.repair(project)
+    assert project.status == ProjectStatus.READY
+    assert project.repair_attempts >= 1
