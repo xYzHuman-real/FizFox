@@ -1,62 +1,60 @@
 # 🦊 FizFox
 
-FizFox is an AI software-building system designed to transform natural-language ideas into working applications through planning, code generation, sandboxed execution, verification, automatic error correction, and iterative user-directed development.
+FizFox is an AI software-building system designed to transform natural-language ideas into applications through planning, code generation, sandboxed validation, verification, automatic error correction, iterative editing, persistence, preview, and export.
 
-## v0.1 Mission
+## v0.1 Core Loop
 
-Build the core loop first:
-
-**Idea → Plan → Generate → Build → Verify → Preview → Iterate**
+**Idea → Plan → Generate → Build → Verify → Repair → Preview → Edit → Export**
 
 ## Architecture
 
 ```text
 User Prompt
     ↓
-Planner
+AI / Heuristic Planner
     ↓
-App Specification
+AppSpec
     ↓
-Code Generator
+AI / Heuristic Generator
     ↓
 Project Files
     ↓
-Sandbox Runtime
+Safe Runtime Boundary
     ↓
-Build / Verify
+Verifier
     ↓
-Preview
+Bounded Repair
     ↓
-Follow-up Prompt
-    └──────────────→ Modifier
+Safe Static Preview
+    ↓
+Follow-up Edit
+    └──────────────→ same project
 ```
 
 ## Repository Layout
 
 ```text
 FizFox/
-├── backend/          # FastAPI API and orchestration
+├── backend/          # FastAPI API, pipeline and persistence
 ├── frontend/         # GitHub Pages-ready product UI
 ├── worker/           # isolated execution worker boundary
-├── docs/             # architecture and product decisions
+├── docs/             # architecture and deployment notes
 ├── Dockerfile        # backend container image
-└── render.yaml       # backend deployment configuration
+└── render.yaml       # Render deployment blueprint
 ```
 
 ## Local Development
-
-Backend:
 
 ```bash
 cd backend
 python -m uvicorn app.main:app --reload
 ```
 
-The API exposes `/health` and `/api/system/status` for service/capability checks.
+The API exposes `/health` and `/api/system/status` for service and capability checks.
 
-## AI Provider Configuration
+## AI Provider
 
-FizFox uses an OpenAI-compatible HTTP boundary. Configure the backend environment with:
+FizFox uses an OpenAI-compatible HTTP boundary. Configure the backend only:
 
 ```text
 FIZFOX_AI_BASE_URL=https://your-provider.example/v1
@@ -65,23 +63,27 @@ FIZFOX_AI_MODEL=your-model
 FIZFOX_AI_TIMEOUT=60
 ```
 
-No provider credentials are stored in the repository.
+No provider credentials belong in the frontend or Git repository.
 
 ## GitHub Pages + API
 
-The frontend is static and can be hosted independently from the FastAPI backend. Open the Pages site once with the backend URL as a query parameter:
+The frontend can connect to a separately deployed HTTPS backend. Use the **API** button in the workspace, or open the Pages URL once with:
 
 ```text
 ?api=https://your-fizfox-api.example.com
 ```
 
-FizFox remembers that API URL in the browser. The backend should use HTTPS and configure `FIZFOX_ALLOWED_ORIGINS` to the exact frontend origin in production.
+The API origin is saved locally in the browser. In production, set `FIZFOX_ALLOWED_ORIGINS` to the exact GitHub Pages origin.
+
+## Project Export
+
+After a project is generated, verified, or edited, the workspace provides **Export project**. The backend returns the current project files as a ZIP archive without executing them.
 
 ## Security Boundary
 
-Generated source is treated as untrusted. The API does not execute generated code on its own host. The worker boundary is designed for isolated container validation with network disabled, read-only project mounts, dropped capabilities, no-new-privileges, CPU/memory/process limits, and ephemeral storage.
+Generated source is untrusted data. The API does not execute generated commands on its own host. The worker boundary uses restricted container controls including disabled networking, read-only project mounts, dropped Linux capabilities, no-new-privileges, CPU/memory/process limits, timeouts, and ephemeral storage.
 
-The current worker performs constrained validation rather than acting as a production multi-tenant preview platform. Production deployment should add stronger isolation, authentication, quotas, observability, and a dedicated preview service.
+The current preview is intentionally static and strips generated scripts. The container worker currently performs constrained validation rather than serving a production multi-tenant live preview. A production system still needs authentication, quotas, observability, stronger tenant isolation, persistent managed storage, and a dedicated preview service.
 
 ## Development Principle
 
