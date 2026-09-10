@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from pathlib import Path
 from threading import Lock
@@ -11,8 +12,9 @@ from .models import Project
 class ProjectStore:
     """Small SQLite-backed project store for the v0.1 MVP."""
 
-    def __init__(self, path: str = "data/fizfox.db") -> None:
-        self.path = Path(path)
+    def __init__(self, path: str | None = None) -> None:
+        configured_path = path or os.getenv("FIZFOX_DB_PATH", "data/fizfox.db")
+        self.path = Path(configured_path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = Lock()
         self._init_db()
