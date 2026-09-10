@@ -10,6 +10,7 @@ const workspaceMeta = document.getElementById('workspaceMeta');
 const editPrompt = document.getElementById('editPrompt');
 const editButton = document.getElementById('editButton');
 const editStatus = document.getElementById('editStatus');
+const exportButton = document.getElementById('exportButton');
 const apiSettings = document.getElementById('apiSettings');
 const apiPanel = document.getElementById('apiPanel');
 const apiBaseInput = document.getElementById('apiBaseInput');
@@ -112,6 +113,15 @@ saveApiButton.addEventListener('click', async () => {
   } catch {
     setStatus(apiStatus, 'Connection failed. Check the URL, HTTPS and CORS settings.', false, 'error');
   }
+});
+
+exportButton.addEventListener('click', () => {
+  if (!currentProjectId) return;
+  if (!API_BASE) {
+    setStatus(editStatus, 'Connect your FizFox API before exporting.', false, 'error');
+    return;
+  }
+  window.open(`${API_BASE}/api/projects/${currentProjectId}/export`, '_blank', 'noopener');
 });
 
 document.querySelectorAll('.chip').forEach((chip) => {
