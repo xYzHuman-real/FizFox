@@ -4,7 +4,7 @@ The backend is designed to run as a separate HTTPS service from the static GitHu
 
 ## Container
 
-`backend/Dockerfile` is the intended API image definition. The container listens on the `PORT` environment variable and defaults to `8000`.
+The repository-root `Dockerfile` builds the FizFox API image. The container listens on the `PORT` environment variable and defaults to `8000`.
 
 ## Required AI environment variables
 
@@ -25,7 +25,7 @@ Never put the AI API key in the frontend or commit it to Git.
 
 ## Frontend connection
 
-Set the deployed API origin in the frontend runtime configuration as `window.FIZFOX_API_BASE`, or store it in `localStorage` under `fizfox_api_base`.
+The frontend accepts the public API origin through `?api=https://your-api.example.com` and stores that value locally in the browser. It can also use `window.FIZFOX_API_BASE` or the saved `fizfox_api_base` value.
 
 The API must be served over HTTPS and must allow the GitHub Pages origin through CORS.
 
