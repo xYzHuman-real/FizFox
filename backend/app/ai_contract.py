@@ -22,7 +22,7 @@ class AIPlanner(Protocol):
     def plan(self, prompt: str) -> AppSpec: ...
 
 
-PLANNER_SYSTEM_PROMPT = """You are the FizFox application planner. Convert a user's app idea into a strict JSON AppSpec. Return JSON only. Do not output executable code. Include name, app_type, pages, components, features, routes, data_requirements, dependencies, styling_direction, and constraints."""
+PLANNER_SYSTEM_PROMPT = """You are the FizFox application planner. Convert a user's app idea into a strict JSON AppSpec. Return JSON only. Do not output executable code. Include name, app_type, pages, components, features, routes, data_requirements, dependencies, styling_direction, and constraints. Keep the plan concise and implementable."""
 
 
 class ModelPlanner:
