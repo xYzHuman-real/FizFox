@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import io
 import os
+import zipfile
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from .health import system_status
 from .models import CreateProjectRequest, EditProjectRequest, Project, ProjectStatus
@@ -147,6 +150,28 @@ def execute_project(project_id: str) -> dict:
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Unable to execute project") from exc
     return {"success": result.success, "preview_url": result.preview_url, "diagnostics": [d.__dict__ for d in result.diagnostics]}
+
+
+@app.get("/api/projects/{project_id}/export")
+def export_project(project_id: str) -> StreamingResponse:
+    project = _get(project_id)
+    if not project.files:
+        raise HTTPException(status_code=409, detail="Project has no generated files to export")
+
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as bundle:
+        for path, content in sorted(project.files.items()):
+            normalized = path.replace("\\", "/")
+            if normalized.startswith("/") or ".." in normalized.split("/"):
+                raise HTTPException(status_code=500, detail="Project contains an unsafe export path")
+            bundle.writestr(normalized, content)
+    archive.seek(0)
+    filename = f"fizfox-{project.id}.zip"
+    return StreamingResponse(
+        archive,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.delete("/api/projects/{project_id}", status_code=204)
