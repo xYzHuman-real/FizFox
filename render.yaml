@@ -5,6 +5,10 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     healthCheckPath: /health
+    disk:
+      name: fizfox-data
+      mountPath: /data
+      sizeGB: 1
     envVars:
       - key: FIZFOX_AI_BASE_URL
         sync: false
