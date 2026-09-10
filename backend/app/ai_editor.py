@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import re
 from typing import Dict
 
 from .ai_contract import AIRequest, AITransport
@@ -32,7 +31,7 @@ class AIProjectEditor:
         )
         if len(context.encode("utf-8")) > 6_000_000:
             raise ValueError("Project is too large for the AI editor")
-        response = self.transport.complete(AIRequest(system=EDITOR_SYSTEM_PROMPT, user=context, temperature=0.1))
+        response = self.transport.complete(AIRequest(system=EDITOR_SYSTEM_PROMPT, user=context))
         payload = parse_json_object(response)
         changed = payload.get("files")
         if not isinstance(changed, dict) or not changed:
