@@ -2,16 +2,16 @@
 
 ## 1. Core Loop
 
-FizFox receives natural language and turns it into a structured application specification. That specification becomes the source of truth for generation and later edits.
+FizFox turns natural-language product ideas into structured application plans, generated files, verified previews, iterative edits, and exportable projects.
 
 ```text
 Prompt
   ↓
-Planner
+AI / Heuristic Planner
   ↓
 AppSpec
   ↓
-Code Generator
+AI / Heuristic Generator
   ↓
 Project Files
   ↓
@@ -19,23 +19,27 @@ Safe Runtime Boundary
   ↓
 Verifier
   ↓
-Repair Loop
+Bounded Repair
   ↓
-Preview
+Safe Static Preview
+  ↓
+Iterative Edit
+  └──────────────→ same project
 ```
 
 ## 2. Backend Responsibilities
 
-The backend owns orchestration, not UI rendering.
+The backend owns orchestration and persistence, not UI rendering.
 
-- Accept user prompts.
+- Accept and validate user prompts.
 - Create and validate an `AppSpec`.
-- Track project state and generated files.
-- Invoke provider-agnostic planning and generation interfaces.
-- Apply user-directed project edits.
-- Dispatch builds through a runtime boundary.
-- Verify generated output.
-- Run bounded automatic repair for known failures.
+- Persist projects in SQLite for the MVP.
+- Invoke provider-agnostic planning, generation, editing, and repair interfaces.
+- Validate model output as untrusted data.
+- Verify generated files without executing them on the API host.
+- Run bounded repair for known or model-diagnosed failures.
+- Build a safe static preview artifact.
+- Export project files as a ZIP archive.
 
 ## 3. AppSpec Contract
 
@@ -52,75 +56,97 @@ The planner produces:
 - styling direction
 - generation constraints
 
-The contract is provider-agnostic so FizFox can use different AI models without changing the rest of the system.
+The contract is provider-agnostic so FizFox can switch compatible model providers without changing the rest of the product pipeline.
 
-## 4. Current MVP Pipeline
+## 4. Current Pipeline
 
 ```text
 POST /api/projects
         ↓
-Project (created)
+Project (persisted)
         ↓
 POST /api/projects/{id}/plan
         ↓
-AppSpec (planned)
+AppSpec
         ↓
 POST /api/projects/{id}/generate
         ↓
-Static project files (generated)
+Project files
         ↓
 POST /api/projects/{id}/build-and-repair
         ↓
-Ready / failed + diagnostics
+Verified / failed + diagnostics
+        ↓
+GET /api/projects/{id}/preview
+        ↓
+Static preview
+        ↓
+POST /api/projects/{id}/edit
+        ↓
+Rebuild / verify / repair
 ```
 
-The current planner, generator, editor, runtime, verifier, and repair engine are deterministic MVP implementations. They establish the architecture before a real model provider and executable container runtime are connected.
+When AI environment variables are absent, FizFox uses deterministic heuristic fallbacks. When configured, the AI planner, generator, editor, and repairer are used through the provider transport boundary.
 
-## 5. Code Generation Boundary
+## 5. AI Boundary
 
-`CodeGenerator` is a provider-agnostic interface. The current `HeuristicCodeGenerator` produces a small static web project containing `index.html`, `styles.css`, `app.js`, and `README.md`.
+All model communication goes through `AITransport` and `AIRequest`.
 
-Generated source is treated as data. **FizFox must never execute generated code directly on the API host.** Execution belongs behind the sandbox boundary.
+Model output is treated as untrusted text. Before it enters the project model it is:
 
-## 6. Runtime Boundary
+1. parsed as JSON
+2. schema/shape validated
+3. path validated
+4. file-count and file-size limited
+5. total source size limited
 
-`SafeStaticRuntime` is deliberately non-executing. It validates the generated project before any future executable sandbox is introduced.
+Provider credentials are server-side environment variables only.
 
-It currently checks:
+## 6. Code Generation
 
-- project has generated files
-- file-count limit
-- file-size limit
-- allowed file types
-- path traversal / project-boundary escapes
-- required `index.html` entrypoint
-- basic HTML document validity
+The provider-neutral `CodeGenerationProvider` produces a `GeneratedProject` containing safe relative paths and complete UTF-8 file contents.
 
-A future container-backed runtime will add actual build/start execution with explicit restrictions for filesystem access, network access, CPU, memory, execution time, child processes, and environment/secrets exposure.
+The deterministic fallback currently creates a small static project containing `index.html`, `styles.css`, `app.js`, and `README.md`.
 
-## 7. Verification Boundary
+**Generated source must never be executed directly by the API process.**
 
-`StaticVerifier` performs deterministic output checks without executing untrusted project code. It checks the HTML entrypoint and basic JavaScript structure and returns structured diagnostics.
+## 7. Runtime and Sandbox
 
-Verification is intentionally layered so stronger checks can be added later:
+`SafeStaticRuntime` and `StaticVerifier` provide the non-executing MVP safety layer. The separate Docker worker boundary is designed for constrained validation on a trusted worker host.
 
-1. generation validation
-2. runtime/build validation
-3. application startup validation
-4. browser/page loading validation
-5. basic interaction validation
+Worker controls include:
 
-## 8. Iterative Editing
+- no network
+- read-only project mount
+- read-only container root
+- dropped capabilities
+- `no-new-privileges`
+- CPU and memory limits
+- process limits
+- execution timeout
+- ephemeral `/tmp`
 
-Users can request changes after generation through:
+The worker is not yet a production multi-tenant live-preview service.
+
+## 8. Preview
+
+The MVP preview is intentionally inert. `StaticPreviewBuilder` strips generated `<script>` blocks and embeds the generated HTML/CSS into a preview document. This lets users inspect the visual result without executing arbitrary generated JavaScript inside the API process.
+
+A future dedicated preview service can run applications inside stronger isolated sandboxes and return an opaque preview URL.
+
+## 9. Iterative Editing
+
+Users request changes through:
 
 ```text
 POST /api/projects/{id}/edit
 ```
 
-The current `HeuristicProjectEditor` supports a small safe set of presentation edits such as dark mode, purple accents, hero-section insertion, and larger headings. A future model-backed editor will replace this implementation while keeping the same boundary.
+The model-backed editor receives the current AppSpec, project files, and instruction, then returns only complete contents for changed files. Safe path and size validation is applied before persistence.
 
-## 9. Repair Loop
+A deterministic editor remains available when no AI provider is configured.
+
+## 10. Repair Loop
 
 ```text
 Build / Verify
@@ -129,22 +155,20 @@ Failure
       ↓
 Diagnose
       ↓
-Known safe repair?
-   ┌──┴──┐
-  YES    NO
-   ↓      ↓
-Repair   Report
-   ↓
-Build again
-   ↓
+AI repairer if configured
+      ↓
+Safe output validation
+      ↓
 Verify again
+      ↓
+Ready / report failure
 ```
 
-`BoundedRepairEngine` limits repair attempts and only applies explicitly supported deterministic repairs. Unknown failures are not blindly modified.
+The deterministic `BoundedRepairEngine` remains the fallback and has a hard attempt limit.
 
-## 10. Project Model
+## 11. Persistence and Export
 
-A project is identified by a stable project ID and contains:
+Projects are stored in SQLite through `ProjectStore`.
 
 ```text
 Project
@@ -152,16 +176,32 @@ Project
 ├── prompt
 ├── status
 ├── spec
-├── files/
-├── build
-│   └── diagnostics[]
+├── files
+├── build diagnostics
+├── preview_html
 └── repair_attempts
 ```
 
-Projects currently live in memory during the foundation phase. Persistence, authentication, and deployment will be introduced later.
+The API exposes project listing, retrieval, file retrieval, deletion, and ZIP export. Production should move persistence to a managed database/object store.
 
-## 11. Next Runtime Boundary
+## 12. Deployment
 
-The next production-grade runtime must be container-backed and isolated. Generated applications should execute only inside a restricted sandbox with explicit filesystem, network, CPU, memory, time, process, and secret controls.
+The FastAPI backend has a container image and Render blueprint. The frontend is a dependency-free static application suitable for GitHub Pages.
 
-That runtime will enable real build/start execution and browser verification without weakening the host security boundary.
+The frontend can be pointed at the deployed API using the API settings panel or `?api=` query parameter. Production CORS must allow the exact frontend origin.
+
+## 13. Production Gaps
+
+The v0.1 foundation intentionally does not claim production multi-tenancy. Before public scale, add:
+
+- authentication and authorization
+- per-user project ownership
+- request quotas and rate limiting
+- managed database and object storage
+- job queue for long builds
+- stronger sandbox isolation
+- dedicated live-preview service
+- structured observability and audit logs
+- abuse prevention
+- secret isolation
+- resource billing/limits
