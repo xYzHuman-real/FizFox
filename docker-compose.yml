@@ -4,6 +4,10 @@ services:
     ports:
       - "8000:8000"
     restart: unless-stopped
+    environment:
+      FIZFOX_DB_PATH: /data/fizfox.db
+    volumes:
+      - fizfox-data:/data
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -11,3 +15,6 @@ services:
     read_only: true
     tmpfs:
       - /tmp:size=64m,noexec,nosuid,nodev
+
+volumes:
+  fizfox-data:
