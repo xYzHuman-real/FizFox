@@ -69,6 +69,7 @@ class FizFoxEngine:
         project.status = ProjectStatus.VERIFYING
         verification = self.verifier.verify(project.files)
         project.status = ProjectStatus.READY if verification.success else ProjectStatus.FAILED
+        project.build = verification
         if verification.success:
             project.preview_html = self.preview.build(project.files)
         return project
