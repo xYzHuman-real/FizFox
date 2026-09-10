@@ -11,6 +11,7 @@ class AIRequest:
     system: str
     user: str
     temperature: float = 0.1
+    response_mime_type: str | None = None
 
 
 class AITransport(Protocol):
@@ -26,12 +27,19 @@ PLANNER_SYSTEM_PROMPT = """You are the FizFox application planner. Convert a use
 
 
 class ModelPlanner:
-    """Model-backed planner boundary with structured-output validation."""
+    """Gemini-backed planner boundary with structured-output validation."""
 
     def __init__(self, transport: AITransport) -> None:
         self.transport = transport
 
     def plan(self, prompt: str) -> AppSpec:
         from .providers import JsonAppSpecParser
-        response = self.transport.complete(AIRequest(PLANNER_SYSTEM_PROMPT, prompt, 0.1))
+        response = self.transport.complete(
+            AIRequest(
+                system=PLANNER_SYSTEM_PROMPT,
+                user=prompt,
+                temperature=0.1,
+                response_mime_type="application/json",
+            )
+        )
         return JsonAppSpecParser.parse(response)
