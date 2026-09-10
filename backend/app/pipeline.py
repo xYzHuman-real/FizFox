@@ -30,7 +30,7 @@ class BuildPipeline:
 
     def plan(self, project: Project) -> Project:
         project.status = ProjectStatus.PLANNING
-        project.spec = (self.ai_planner.plan(project.prompt) if self.ai_planner else self.fallback_planner.plan(project.prompt))
+        project.spec = self.ai_planner.plan(project.prompt) if self.ai_planner else self.fallback_planner.plan(project.prompt)
         project.status = ProjectStatus.PLANNED
         return project
 
@@ -52,7 +52,7 @@ class BuildPipeline:
             raise ValueError("Project must be generated before editing")
         project.status = ProjectStatus.EDITING
         if self.ai_editor:
-            project.files = self.ai_editor.edit(project.files, instruction, project.spec)
+            project.files = self.ai_editor.edit(project.spec, project.files, instruction).files
         else:
             project.files = self.fallback_editor.edit(project.files, instruction)
         project.status = ProjectStatus.GENERATED
