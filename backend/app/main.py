@@ -110,6 +110,10 @@ def build_project(project_id: str) -> Project:
         pipeline.verify_and_preview(project)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        project.status = ProjectStatus.FAILED
+        _save(project)
+        raise HTTPException(status_code=500, detail="Unable to build project") from exc
     return _save(project)
 
 
@@ -140,6 +144,8 @@ def execute_project(project_id: str) -> dict:
         result = engine.execute(project)
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Unable to execute project") from exc
     return {"success": result.success, "preview_url": result.preview_url, "diagnostics": [d.__dict__ for d in result.diagnostics]}
 
 
