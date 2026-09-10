@@ -37,21 +37,19 @@ const setStatus = (element, message, busy = false, kind = '') => {
 };
 
 async function api(path, options = {}) {
-  if (!API_BASE) {
-    throw new Error('Connect your FizFox API first using the API button above.');
-  }
-  let response;
+  if (!API_BASE) throw new Error('Connect your FizFox API first using the API button above.');
   try {
-    response = await fetch(`${API_BASE}${path}`, {
+    const response = await fetch(`${API_BASE}${path}`, {
       ...options,
       headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
     });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.detail || `Request failed (${response.status})`);
+    return body;
   } catch (error) {
+    if (error instanceof Error && error.message !== 'Failed to fetch') throw error;
     throw new Error('Could not reach the FizFox API. Check the backend URL and CORS settings.');
   }
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.detail || `Request failed (${response.status})`);
-  return body;
 }
 
 function renderWorkspace(project) {
@@ -87,14 +85,18 @@ saveApiButton.addEventListener('click', async () => {
   const value = apiBaseInput.value.trim().replace(/\/$/, '');
   if (!value) {
     API_BASE = '';
+    window.FIZFOX_API_BASE = '';
     localStorage.removeItem('fizfox_api_base');
     setStatus(apiStatus, 'API connection cleared.', false, 'success');
     return;
   }
-  try {
-    new URL(value);
-  } catch {
-    setStatus(apiStatus, 'Enter a valid HTTPS backend URL.', false, 'error');
+  let url;
+  try { url = new URL(value); } catch {
+    setStatus(apiStatus, 'Enter a valid backend URL.', false, 'error');
+    return;
+  }
+  if (url.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(url.hostname)) {
+    setStatus(apiStatus, 'Use an HTTPS backend URL for a deployed FizFox API.', false, 'error');
     return;
   }
   setStatus(apiStatus, 'Testing connection…', true);
@@ -143,9 +145,7 @@ buildButton.addEventListener('click', async () => {
 
 async function applyEdit(instruction) {
   if (!currentProjectId) throw new Error('Build a project before asking for changes.');
-  await api(`/api/projects/${currentProjectId}/edit`, {
-    method: 'POST', body: JSON.stringify({ instruction })
-  });
+  await api(`/api/projects/${currentProjectId}/edit`, { method: 'POST', body: JSON.stringify({ instruction }) });
   const built = await api(`/api/projects/${currentProjectId}/build-and-repair`, { method: 'POST' });
   if (built.status !== 'ready') throw new Error('FizFox could not verify the updated project.');
   return built;
@@ -154,7 +154,7 @@ async function applyEdit(instruction) {
 editButton.addEventListener('click', async () => {
   const instruction = editPrompt.value.trim();
   if (!instruction) { setStatus(editStatus, 'Tell FizFox what you want to change.', false, 'error'); editPrompt.focus(); return; }
-  setStatus(editStatus, 'Understanding your change…', true);
+  setStatus(editStatus, 'Editing the existing project…', true);
   try {
     const built = await applyEdit(instruction);
     setStatus(editStatus, 'Change verified and applied. ✨', false, 'success');
