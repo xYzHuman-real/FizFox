@@ -49,8 +49,7 @@ class AIProjectEditor:
             size = len(content.encode("utf-8"))
             if size > 512_000:
                 raise ValueError(f"AI editor returned a file that is too large: {normalized}")
-            previous_size = len(updated.get(normalized, "").encode("utf-8"))
-            total_size += size - previous_size
+            total_size += size - len(updated.get(normalized, "").encode("utf-8"))
             if total_size > 5_000_000:
                 raise ValueError("AI editor returned too much source content")
             updated[normalized] = content
