@@ -19,7 +19,7 @@ class CodeGenerationProvider(Protocol):
 
 
 def parse_json_object(response: str) -> dict:
-    """Parse strict JSON while tolerating a single markdown code fence."""
+    """Parse strict JSON while tolerating one markdown JSON code fence."""
     text = response.strip()
     fenced = re.fullmatch(r"```(?:json)?\s*(.*?)\s*```", text, flags=re.IGNORECASE | re.DOTALL)
     if fenced:
@@ -44,7 +44,7 @@ class ModelCodeGenerator:
 
     def generate(self, spec: AppSpec) -> GeneratedProject:
         response = self.transport.complete(
-            AIRequest(system=GENERATOR_SYSTEM_PROMPT, user=spec.model_dump_json(), temperature=0.1)
+            AIRequest(system=GENERATOR_SYSTEM_PROMPT, user=spec.model_dump_json())
         )
         data = parse_json_object(response)
         files = data.get("files")
@@ -60,9 +60,10 @@ class ModelCodeGenerator:
             normalized = path.replace("\\", "/")
             if normalized.startswith("/") or ".." in normalized.split("/"):
                 raise ValueError(f"Unsafe generated path: {path}")
-            if len(content.encode("utf-8")) > 512_000:
+            size = len(content.encode("utf-8"))
+            if size > 512_000:
                 raise ValueError(f"Generated file is too large: {path}")
-            total_size += len(content.encode("utf-8"))
+            total_size += size
             if total_size > 5_000_000:
                 raise ValueError("AI generator returned too much source content")
             clean[normalized] = content
