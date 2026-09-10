@@ -21,7 +21,7 @@ The frontend is static, so the API can be hosted separately. The runtime API bas
 https://YOUR-PAGES-URL/?api=https://YOUR-FIZFOX-API.example.com
 ```
 
-The value is saved in browser local storage for later visits. The backend must be reachable over HTTPS from the browser and must allow the frontend origin through CORS.
+You can also tap **API** in the top navigation and paste the HTTPS backend URL. The value is saved in browser local storage for later visits. The backend must be reachable over HTTPS from the browser and must allow the frontend origin through CORS.
 
 Do not put an AI API key in the frontend. Model credentials belong only on the backend/server side through environment variables:
 
@@ -29,6 +29,10 @@ Do not put an AI API key in the frontend. Model credentials belong only on the b
 - `FIZFOX_AI_API_KEY`
 - `FIZFOX_AI_MODEL`
 - `FIZFOX_AI_TIMEOUT`
+
+## Backend deployment
+
+A root `render.yaml` blueprint is included for deploying the FastAPI backend as a Render web service. Configure `FIZFOX_ALLOWED_ORIGINS` with the exact GitHub Pages origin after deployment.
 
 ## Design direction
 
