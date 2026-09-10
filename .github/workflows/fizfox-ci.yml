@@ -31,7 +31,7 @@ jobs:
       - name: Compile backend
         run: python -m compileall -q app
       - name: Run tests
-        run: python -m pytest -q
+        run: python -m pytest -q --import-mode=importlib
 
   frontend:
     name: Frontend checks
