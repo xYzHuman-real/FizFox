@@ -41,6 +41,8 @@ class OpenAICompatibleHTTPTransport(AITransport):
     must be validated by the planner/editor/generator contracts.
     """
 
+    MAX_RESPONSE_BYTES = 8_000_000
+
     def __init__(self, config: HttpAIConfig | None = None) -> None:
         self.config = config or HttpAIConfig.from_env()
 
@@ -66,15 +68,17 @@ class OpenAICompatibleHTTPTransport(AITransport):
         )
         try:
             with urllib.request.urlopen(req, timeout=self.config.timeout_seconds) as response:
-                raw = response.read().decode("utf-8")
+                raw = response.read(self.MAX_RESPONSE_BYTES + 1)
         except urllib.error.HTTPError as exc:
             raise RuntimeError(f"FizFox AI provider returned HTTP {exc.code}") from exc
         except (urllib.error.URLError, TimeoutError) as exc:
             raise RuntimeError("FizFox AI provider request failed") from exc
+        if len(raw) > self.MAX_RESPONSE_BYTES:
+            raise RuntimeError("FizFox AI provider response is too large")
         try:
-            data = json.loads(raw)
+            data = json.loads(raw.decode("utf-8"))
             content = data["choices"][0]["message"]["content"]
-        except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
+        except (UnicodeDecodeError, json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
             raise RuntimeError("FizFox AI provider returned an invalid response") from exc
         if not isinstance(content, str) or not content.strip():
             raise RuntimeError("FizFox AI provider returned empty content")
