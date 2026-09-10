@@ -15,7 +15,7 @@ class AIRequest:
 
 class AITransport(Protocol):
     def complete(self, request: AIRequest) -> str:
-        """Return a model response. Implementations must not execute it."""
+        """Return model text. Implementations must never execute the response."""
 
 
 class AIPlanner(Protocol):
@@ -26,12 +26,14 @@ PLANNER_SYSTEM_PROMPT = """You are the FizFox application planner. Convert a use
 
 
 class ModelPlanner:
-    """Model-backed planner boundary with strict structured-output validation."""
+    """Model-backed planner boundary with structured-output validation."""
 
     def __init__(self, transport: AITransport) -> None:
         self.transport = transport
 
     def plan(self, prompt: str) -> AppSpec:
         from .providers import JsonAppSpecParser
-        response = self.transport.complete(AIRequest(PLANNER_SYSTEM_PROMPT, prompt, 0.1))
+        response = self.transport.complete(
+            AIRequest(system=PLANNER_SYSTEM_PROMPT, user=prompt, temperature=0.1)
+        )
         return JsonAppSpecParser.parse(response)
